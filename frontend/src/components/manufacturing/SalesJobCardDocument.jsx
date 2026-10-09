@@ -82,7 +82,6 @@ export default function SalesJobCardDocument({
   const logoUrl = resolveCompanyLogoUrl(companyProfile);
   const tagline = resolveCompanyTagline(companyProfile);
 
-  const header = doc.header || {};
   const cust = doc.customer_details || {};
   const order = doc.order_details || {};
   const lines = doc.product_lines || [];
@@ -99,9 +98,12 @@ export default function SalesJobCardDocument({
   const selectedCustomer = customers?.find((c) => String(c.id) === String(form?.customer_id));
 
   return (
-    <div className="sjc-doc sjc-doc--screen" id="sales-job-card-document">
+    <div
+      className={`sjc-doc sjc-doc--screen${editable ? "" : " sjc-doc--display"}`}
+      id="sales-job-card-document"
+    >
       <div className="sjc-doc__paper">
-        <div className="sjc-doc__header-row">
+        <div className="sjc-doc__header-row sjc-doc__header-row--sales">
           <div className="sjc-doc__company">
             {logoUrl ? (
               <img src={logoUrl} alt="" className="sjc-doc__logo" />
@@ -114,28 +116,6 @@ export default function SalesJobCardDocument({
             </div>
           </div>
           {tagline ? <p className="sjc-doc__tagline">{tagline}</p> : null}
-          <div className="sjc-doc__meta">
-            <table className="sjc-doc__meta-grid">
-              <tbody>
-                <tr>
-                  <td className="sjc-doc__meta-label">Job Card No.</td>
-                  <td className="sjc-doc__meta-value">{display(header.job_card_no || (editable ? "Auto-generated" : null))}</td>
-                </tr>
-                <tr>
-                  <td className="sjc-doc__meta-label">Date</td>
-                  <td className="sjc-doc__meta-value">{fmtDate(header.job_card_date) || "—"}</td>
-                </tr>
-                <tr>
-                  <td className="sjc-doc__meta-label">Sales Order No.</td>
-                  <td className="sjc-doc__meta-value">{display(header.sales_order_no)}</td>
-                </tr>
-                <tr>
-                  <td className="sjc-doc__meta-label">Customer PO No.</td>
-                  <td className="sjc-doc__meta-value">{display(header.customer_po_no)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
 
         <div className="sjc-doc__title-band">SALES JOB CARD</div>
@@ -196,7 +176,6 @@ export default function SalesJobCardDocument({
                   </span>
                 </div>
                 <FieldRow label="Product Category" value={order.product_category} />
-                <FieldRow label="End Use" value={order.end_use} />
                 <FieldRow label="Payment Terms" value={order.payment_terms} />
                 <div className="sjc-doc__field-row">
                   <span className="sjc-doc__field-label">Priority *</span>
@@ -231,8 +210,10 @@ export default function SalesJobCardDocument({
                 <FieldRow label="Sales Order Date" value={fmtDate(order.sales_order_date)} />
                 <FieldRow label="Delivery Date" value={fmtDeliveryDisplay(order.delivery_date)} />
                 <FieldRow label="Product Category" value={order.product_category} />
-                <FieldRow label="End Use" value={order.end_use} />
                 <FieldRow label="Payment Terms" value={order.payment_terms} />
+                {order.payment_terms_description ? (
+                  <FieldRow label="Payment Terms Description" value={order.payment_terms_description} />
+                ) : null}
                 <FieldRow
                   label="Priority"
                   value={order.priority ? String(order.priority).replace(/^./, (c) => c.toUpperCase()) : ""}

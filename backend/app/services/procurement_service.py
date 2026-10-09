@@ -424,8 +424,7 @@ def approve_material_request(
 
     if approved:
         mr.approval_status = "approved"
-        if (mr.status or "").lower() == "pending":
-            mr.status = "approved"
+        mr.status = "approved"
         suffix = f"Approved by {approved_by or 'Purchase Manager'}"
     else:
         mr.approval_status = "rejected"

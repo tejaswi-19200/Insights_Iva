@@ -257,7 +257,6 @@ function QueueRowCard({
     storeMode,
     user,
   });
-  const rowCanSend = Boolean(onSend) && canSend && manualJobCardCanSend(row);
 
   return (
     <article
@@ -303,11 +302,6 @@ function QueueRowCard({
       <div className="mt-3 flex items-center justify-between gap-2">
         <PriorityBadge priority={row.priority || "medium"} showDot={false} />
         <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {rowCanSend && onSend ? (
-            <Button variant="primary" size="sm" onClick={() => onSend(row)}>
-              Send
-            </Button>
-          ) : null}
           {onViewDetails ? (
             <Button
               variant={actionVariantForRow(row)}
@@ -428,8 +422,6 @@ export default function JobCardQueueTable({
                   storeMode,
                   user,
                 });
-                const rowCanSend = Boolean(onSend) && canSend && manualJobCardCanSend(row);
-
                 return (
                   <tr
                     key={rowKey}
@@ -499,11 +491,6 @@ export default function JobCardQueueTable({
                     </td>
                     <td className="my-job-cards-table__actions-col px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                       <div className="my-job-cards-table__actions-wrap">
-                        {rowCanSend && onSend ? (
-                          <Button variant="primary" size="sm" onClick={() => onSend(row)}>
-                            Send
-                          </Button>
-                        ) : null}
                         <RowActionMenu rowId={String(rowKey)} openMenu={openMenu} setOpenMenu={setOpenMenu} items={menuItems} />
                       </div>
                     </td>

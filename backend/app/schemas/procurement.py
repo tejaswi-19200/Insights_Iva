@@ -72,6 +72,7 @@ class PurchaseOrderSupplierRead(BaseModel):
     gstin: str | None = None
     address: str | None = None
     state: str | None = None
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseOrderRead(PurchaseOrderBase):

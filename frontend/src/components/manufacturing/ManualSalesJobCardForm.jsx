@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PenLine, Plus, Save, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import Button from "../common/Button";
@@ -51,8 +51,12 @@ import { formatInr } from "../../data/salesMasterData";
 import { formatCompanyAddress, resolveCompanyLogoUrl, resolveCompanyTagline } from "../../utils/salesJobCardDocument";
 import QuickAddCustomerModal from "./QuickAddCustomerModal";
 import QuickAddProductModal from "./QuickAddProductModal";
+import EditCompanyDetailsModal from "../sales/EditCompanyDetailsModal";
+import AddContactPersonModal from "../sales/AddContactPersonModal";
 import "../../styles/sales-job-card-document.css";
 import "../../styles/manual-sales-job-card-form.css";
+
+const ADD_CONTACT_PERSON_VALUE = "__add_contact_person__";
 
 function FieldError({ error }) {
   if (!error) return null;
@@ -74,11 +78,6 @@ function FormGridField({ label, required, error, children, fieldKey, className =
   );
 }
 
-function formatSalesOrderDate(order) {
-  const raw = order?.order_date || order?.created_at || "";
-  return raw ? String(raw).slice(0, 10) : "—";
-}
-
 function workflowStatusLabel(status) {
   const normalized = String(status || "").toUpperCase();
   if (!normalized || normalized === "SAVED") return MANUAL_JOB_CARD_SAVED_STATUS;
@@ -95,6 +94,8 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
   const navigate = useNavigate();
   const { addToast } = useToast();
   const isEdit = Boolean(jobCardId);
+  const billingAddressRef = useRef(null);
+  const dispatchAddressRef = useRef(null);
 
   const {
     customers,
@@ -116,6 +117,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [companyProfile, setCompanyProfile] = useState(null);
+  const [editCompanyOpen, setEditCompanyOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   // NEW: was used (setSelectedSalesOrderId) but never declared — this is the second latent bug.
@@ -124,8 +126,12 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
   const [recordVersion, setRecordVersion] = useState(null);
   const [readOnlySales, setReadOnlySales] = useState(false);
   const [canEditCard, setCanEditCard] = useState(true);
+  const [activeDetailTab, setActiveDetailTab] = useState("other");
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showAddContactPerson, setShowAddContactPerson] = useState(false);
+  const [showPaymentTermsDescription, setShowPaymentTermsDescription] = useState(false);
+  const [contactPersons, setContactPersons] = useState([]);
   const [addProductRowIndex, setAddProductRowIndex] = useState(null);
   const [customerFromOrder, setCustomerFromOrder] = useState(false);
 
@@ -153,7 +159,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
   );
 
   const customerFooterOptions = useMemo(
-    () => (canAddCustomer ? [{ value: ADD_CUSTOMER_VALUE, label: "+ Add Customer" }] : []),
+    () => (canAddCustomer ? [{ value: ADD_CUSTOMER_VALUE, label: "Add Company" }] : []),
     [canAddCustomer]
   );
 
@@ -171,25 +177,60 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
     [canAddProduct]
   );
 
+  const contactPersonOptions = useMemo(
+    () => contactPersons.map(({ name }) => ({ value: name, label: name })),
+    [contactPersons]
+  );
+  const contactPersonFooterOptions = useMemo(
+    () => [{ value: ADD_CONTACT_PERSON_VALUE, label: "Add Person" }],
+    []
+  );
+
+  useEffect(() => {
+    const name = String(form.customer.contact_person || "").trim();
+    if (!name) return;
+    setContactPersons((current) => {
+      const existing = current.findIndex(
+        (contact) => contact.name.toLowerCase() === name.toLowerCase()
+      );
+      if (existing < 0) {
+        return [...current, { name, email: form.customer.email || "", phone: form.customer.phone || "" }];
+      }
+      return current.map((contact, index) =>
+        index === existing
+          ? { ...contact, email: form.customer.email || "", phone: form.customer.phone || "" }
+          : contact
+      );
+    });
+  }, [form.customer.contact_person, form.customer.email, form.customer.phone]);
+
   const salesOrdersForSelect = useMemo(() => {
     if (!selectedCustomerId) return salesOrders;
     const customer = customers.find((c) => String(c.id) === String(selectedCustomerId));
     if (!customer) return salesOrders;
-    const name = String(customer.name || customer.company || "").toLowerCase();
-    if (!name) return salesOrders;
-    return salesOrders.filter((o) => String(o.customer_name || "").toLowerCase() === name);
+    const customerId = String(customer.id);
+    const customerNames = new Set(
+      [customer.name, customer.company, customer.customer_name]
+        .map((name) => String(name || "").trim().replace(/\s+/g, " ").toLowerCase())
+        .filter(Boolean)
+    );
+    if (!customerNames.size) return salesOrders;
+    return salesOrders.filter((order) => {
+      if (order.customer_id != null) return String(order.customer_id) === customerId;
+      const orderNames = [order.customer_name, order.buyer_name, order.buyer_company]
+        .map((name) => String(name || "").trim().replace(/\s+/g, " ").toLowerCase())
+        .filter(Boolean);
+      return orderNames.some((name) => customerNames.has(name));
+    });
   }, [salesOrders, selectedCustomerId, customers]);
 
   const salesOrderOptions = useMemo(
     () =>
       salesOrdersForSelect.map((o) => {
         const soNo = o.order_number || `SO-${o.id}`;
-        const customer = o.customer_name || o.buyer_company || "—";
-        const date = formatSalesOrderDate(o);
-        const status = o.status || o.order_status || "—";
         return {
           value: String(o.id),
-          label: `${soNo} · ${customer} · ${date} · ${status}`,
+          label: soNo,
         };
       }),
     [salesOrdersForSelect]
@@ -257,6 +298,8 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
         phone: customer.phone || prev.customer.phone,
         email: customer.email || prev.customer.email,
         billing_address: formatCustomerAddress(customer) || prev.customer.billing_address,
+        dispatch_address:
+          customer.shipping_address || customer.dispatch_address || prev.customer.dispatch_address,
       },
     }));
     setErrors((prev) => {
@@ -595,6 +638,18 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
     }
   };
 
+  const companyName =
+    companyProfile?.company_name || companyProfile?.legal_name || companyProfile?.name || "";
+  const companyAddress = formatCompanyAddress(companyProfile);
+
+  useEffect(() => {
+    [billingAddressRef.current, dispatchAddressRef.current].forEach((textarea) => {
+      if (!textarea) return;
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+  }, [activeDetailTab, form.customer.billing_address, form.customer.dispatch_address]);
+
   if (loading) {
     return <LoadingState label="Loading job card…" className="py-16" />;
   }
@@ -604,9 +659,6 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
     );
   }
 
-  const companyName =
-    companyProfile?.company_name || companyProfile?.legal_name || companyProfile?.name || "";
-  const companyAddress = formatCompanyAddress(companyProfile);
   const logoUrl = resolveCompanyLogoUrl(companyProfile);
   const tagline = resolveCompanyTagline(companyProfile);
   const statusDisplay = isEdit ? workflowStatusLabel(workflowStatus) : MANUAL_JOB_CARD_SAVED_STATUS;
@@ -614,9 +666,9 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
   const customerEmptyLabel =
     !mastersLoading && customerOptions.length === 0
       ? canAddCustomer
-        ? "No customers found — use + Add Customer"
-        : "No customers found"
-      : "Select customer…";
+        ? "No companies found — use Add Company"
+        : "No companies found"
+      : "Select company…";
 
   const productEmptyLabel =
     !mastersLoading && productOptions.length === 0
@@ -624,6 +676,12 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
         ? "No products found — use + Add Product"
         : "No products found"
       : "Select product…";
+  const detailTabs = [
+    { id: "other", label: "Other Details" },
+    { id: "addresses", label: "Addresses" },
+    { id: "specifications", label: "Technical Specifications" },
+    { id: "approval", label: "Approval" },
+  ];
 
   return (
     <div className="manual-sjc-page ui-stack">
@@ -640,6 +698,27 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
         }}
         onSaved={handleProductCreated}
       />
+      <EditCompanyDetailsModal
+        open={editCompanyOpen}
+        onClose={() => setEditCompanyOpen(false)}
+        onSaved={setCompanyProfile}
+      />
+      <AddContactPersonModal
+        open={showAddContactPerson}
+        onClose={() => setShowAddContactPerson(false)}
+        onSave={(contact) => {
+          setContactPersons((current) => {
+            const existing = current.findIndex(
+              (person) => person.name.toLowerCase() === contact.name.toLowerCase()
+            );
+            if (existing < 0) return [...current, contact];
+            return current.map((person, index) => (index === existing ? contact : person));
+          });
+          patch("customer.contact_person", contact.name);
+          patch("customer.email", contact.email || "");
+          patch("customer.phone", contact.phone || "");
+        }}
+      />
 
       <div className="ui-card manual-sjc-page__card">
         <header className="manual-sjc-page__toolbar">
@@ -648,9 +727,25 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
               {isEdit ? "Edit Sales Job Card" : "Create Sales Job Card"}
             </h1>
             {!isEdit ? (
-              <p className="manual-sjc-page__toolbar-desc">
-                Create a job card from an existing sales order.
-              </p>
+              <div className="manual-sjc-page__company">
+                {companyName || companyAddress || logoUrl ? (
+                  <>
+                    {logoUrl ? <img src={logoUrl} alt="" className="manual-sjc-page__company-logo" /> : null}
+                    <div className="manual-sjc-page__company-text">
+                      {companyName ? <span className="manual-sjc-page__company-name">{companyName}</span> : null}
+                      {companyAddress ? <span className="manual-sjc-page__company-address">{companyAddress}</span> : null}
+                    </div>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className="manual-sjc-page__company-edit"
+                  onClick={() => setEditCompanyOpen(true)}
+                >
+                  <PenLine className="h-3.5 w-3.5" aria-hidden />
+                  Edit Company Details
+                </button>
+              </div>
             ) : null}
             {isEdit && form.job_card_no ? (
               <p className="manual-sjc-page__toolbar-meta">
@@ -697,8 +792,9 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                 </div>
               ) : null}
 
+              <div className="manual-sjc__form-sections">
               <section
-                className="manual-sjc__section manual-sjc__section--block"
+                className="manual-sjc__section manual-sjc__section--block manual-sjc__basic-section"
                 aria-labelledby="manual-sjc-customer-order"
               >
                 <h3 id="manual-sjc-customer-order" className="manual-sjc__section-title">
@@ -709,7 +805,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                 </p>
                 <div className="manual-sjc__primary-grid">
                   <FormGridField
-                    label="Customer Name"
+                    label="Company Name"
                     required
                     error={errors["customer.customer_name"]}
                     fieldKey="customer.customer_name"
@@ -728,8 +824,8 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                         onChange={handleCustomerSelect}
                         options={customerOptions}
                         footerOptions={customerFooterOptions}
-                        placeholder={mastersLoading ? "Loading customers…" : customerEmptyLabel}
-                        searchPlaceholder="Search customer…"
+                        placeholder={mastersLoading ? "Loading companies…" : customerEmptyLabel}
+                        searchPlaceholder="Search companies…"
                         allowCustom
                         disabled={mastersLoading || !canEditCard}
                         error={Boolean(errors["customer.customer_name"])}
@@ -748,8 +844,9 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                       value={salesOrderSelectValue}
                       onChange={handleSalesOrderSelect}
                       options={salesOrderOptions}
-                      placeholder={mastersLoading ? "Loading sales orders…" : "Select sales order…"}
-                      searchPlaceholder="Search sales order…"
+                      placeholder={mastersLoading ? "Loading sales orders…" : "Choose a sales order…"}
+                      searchPlaceholder="Search by order number…"
+                      menuClassName="!max-h-56"
                       allowCustom
                       disabled={mastersLoading || !canEditCard}
                       error={Boolean(errors["header.sales_order_no"])}
@@ -810,9 +907,29 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                 </div>
               </section>
 
+              <div className="manual-sjc__detail-tabs manual-sjc__details-tabs-section" role="tablist" aria-label="Additional job card details">
+                {detailTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    id={`manual-sjc-tab-${tab.id}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeDetailTab === tab.id}
+                    aria-controls={`manual-sjc-panel-${tab.id}`}
+                    className={`manual-sjc__detail-tab${activeDetailTab === tab.id ? " is-active" : ""}`}
+                    onClick={() => setActiveDetailTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {activeDetailTab === "other" ? (
               <section
-                className="manual-sjc__section manual-sjc__section--block"
-                aria-labelledby="manual-sjc-order-info"
+                id="manual-sjc-panel-other"
+                role="tabpanel"
+                aria-labelledby="manual-sjc-tab-other"
+                className="manual-sjc__section manual-sjc__section--block manual-sjc__detail-panel"
               >
                 <h3 id="manual-sjc-order-info" className="manual-sjc__section-title">
                   Order Information
@@ -820,7 +937,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                 <p className="manual-sjc__section-hint manual-sjc__section-hint--compact">
                   Values from the selected sales order or customer. Adjust if needed before saving.
                 </p>
-                <div className="manual-sjc__primary-grid">
+                <div className="manual-sjc__primary-grid manual-sjc__primary-grid--details">
                   <FormGridField label="Customer PO No.">
                     <Input
                       value={form.header.customer_po_no}
@@ -839,12 +956,28 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                     />
                   </FormGridField>
                   <FormGridField label="Contact Person" error={errors["customer.contact_person"]}>
-                    <Input
+                    <SearchableSelect
                       value={form.customer.contact_person}
-                      onChange={(e) => patch("customer.contact_person", e.target.value)}
-                      className="sjc-doc__input"
-                      placeholder="Contact at customer site"
+                      onChange={(value) => {
+                        const selected = contactPersons.find((person) => person.name === value);
+                        patch("customer.contact_person", value);
+                        if (selected) {
+                          if (selected.email) patch("customer.email", selected.email);
+                          if (selected.phone) patch("customer.phone", selected.phone);
+                        }
+                      }}
+                      options={contactPersonOptions}
+                      footerOptions={contactPersonFooterOptions}
+                      onFooterPick={(option) => {
+                        if (option.value === ADD_CONTACT_PERSON_VALUE) {
+                          setShowAddContactPerson(true);
+                        }
+                      }}
+                      placeholder="Select or enter contact person…"
+                      searchPlaceholder="Search contact person…"
+                      allowCustom
                       disabled={!canEditCard}
+                      className={compactSelectClass}
                     />
                   </FormGridField>
                   <FormGridField label="Phone" error={errors["customer.phone"]}>
@@ -856,51 +989,82 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                       disabled={!canEditCard}
                     />
                   </FormGridField>
-                  <FormGridField label="Email" error={errors["customer.email"]}>
+                  <FormGridField label="Company Email" error={errors["customer.email"]}>
                     <Input
                       type="email"
                       value={form.customer.email}
                       onChange={(e) => patch("customer.email", e.target.value)}
                       className="sjc-doc__input"
-                      placeholder="Email address"
+                      placeholder="Company email address"
                       disabled={!canEditCard}
                     />
                   </FormGridField>
                   <FormGridField label="Payment Terms">
-                    <SearchableSelect
-                      value={form.order.payment_terms}
-                      onChange={(v) => patch("order.payment_terms", v)}
-                      options={paymentTermsOptions}
-                      placeholder="Payment terms…"
-                      searchPlaceholder="Search payment terms…"
-                      allowCustom
-                      disabled={!canEditCard}
-                      className={compactSelectClass}
-                    />
+                    <div className="manual-sjc__payment-terms-field">
+                      <SearchableSelect
+                        value={form.order.payment_terms}
+                        onChange={(v) => patch("order.payment_terms", v)}
+                        options={paymentTermsOptions}
+                        placeholder="Payment terms…"
+                        searchPlaceholder="Search payment terms…"
+                        placement="top"
+                        menuClassName="!max-h-56"
+                        allowCustom
+                        disabled={!canEditCard}
+                        className={compactSelectClass}
+                      />
+                      {showPaymentTermsDescription || form.order.payment_terms_description ? (
+                        <div className="manual-sjc__payment-terms-description">
+                          <Input
+                            value={form.order.payment_terms_description}
+                            onChange={(e) => patch("order.payment_terms_description", e.target.value)}
+                            className="sjc-doc__input"
+                            placeholder="Add payment terms description"
+                            disabled={!canEditCard}
+                          />
+                          {canEditCard ? (
+                            <button
+                              type="button"
+                              className="manual-sjc__description-toggle"
+                              onClick={() => {
+                                patch("order.payment_terms_description", "");
+                                setShowPaymentTermsDescription(false);
+                              }}
+                            >
+                              Remove Description
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : canEditCard ? (
+                        <button
+                          type="button"
+                          className="manual-sjc__description-toggle"
+                          onClick={() => setShowPaymentTermsDescription(true)}
+                        >
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          Add Description
+                        </button>
+                      ) : null}
+                    </div>
                   </FormGridField>
                 </div>
               </section>
+              ) : null}
 
+              {activeDetailTab === "addresses" ? (
               <section
-                className="manual-sjc__section manual-sjc__section--block"
-                aria-labelledby="manual-sjc-additional"
+                id="manual-sjc-panel-addresses"
+                role="tabpanel"
+                aria-labelledby="manual-sjc-tab-addresses"
+                className="manual-sjc__section manual-sjc__section--block manual-sjc__detail-panel"
               >
-                <h3 id="manual-sjc-additional" className="manual-sjc__section-title">
-                  Additional Information
-                </h3>
-                <div className="manual-sjc__stack-fields">
-                  <FormGridField label="End Use" className="manual-sjc__grid-field--block">
-                    <Input
-                      value={form.order.end_use}
-                      onChange={(e) => patch("order.end_use", e.target.value)}
-                      className="sjc-doc__input"
-                      placeholder="How the product will be used"
-                      disabled={!canEditCard}
-                    />
-                  </FormGridField>
-                  <FormGridField label="Billing Address" className="manual-sjc__grid-field--block">
+                <h3 className="manual-sjc__section-title">Addresses</h3>
+                <div className="manual-sjc__address-grid">
+                  <FormGridField label="Billing Address">
                     <Textarea
+                      inputRef={billingAddressRef}
                       rows={2}
+                      wrap="soft"
                       value={form.customer.billing_address}
                       onChange={(e) => patch("customer.billing_address", e.target.value)}
                       className="sjc-doc__input manual-sjc__textarea"
@@ -908,26 +1072,43 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                       disabled={!canEditCard}
                     />
                   </FormGridField>
-                  <FormGridField label="Remarks" className="manual-sjc__grid-field--block">
+                  <FormGridField label="Dispatch Address">
                     <Textarea
+                      inputRef={dispatchAddressRef}
                       rows={2}
-                      value={form.order.remarks}
-                      onChange={(e) => patch("order.remarks", e.target.value)}
+                      wrap="soft"
+                      value={form.customer.dispatch_address}
+                      onChange={(e) => patch("customer.dispatch_address", e.target.value)}
                       className="sjc-doc__input manual-sjc__textarea"
-                      placeholder="Notes for production or store"
+                      placeholder="Dispatch address"
                       disabled={!canEditCard}
                     />
                   </FormGridField>
+                  <FormGridField label="Company Address">
+                    <div className="sjc-doc__input manual-sjc__company-address-value">
+                      {companyAddress || "Company address from settings"}
+                    </div>
+                  </FormGridField>
                 </div>
               </section>
+              ) : null}
 
-              <section className="manual-sjc__section manual-sjc__section--lines" aria-labelledby="manual-sjc-products">
+              <section className="manual-sjc__section manual-sjc__section--lines manual-sjc__product-section" aria-labelledby="manual-sjc-products">
                 <h3 id="manual-sjc-products" className="manual-sjc__section-title">
                   Product / Job Details*
                 </h3>
               <div className="sjc-doc__table-wrap manual-sjc__pricing-table-wrap" data-manual-field="product_lines">
                 {errors.product_lines ? <FieldError error={errors.product_lines} /> : null}
                 <table className="sjc-doc__table manual-sjc__editable-table manual-sjc__pricing-table">
+                  <colgroup>
+                    <col className="manual-sjc__pricing-col--number" />
+                    <col className="manual-sjc__pricing-col--product" />
+                    <col className="manual-sjc__pricing-col--quantity" />
+                    <col className="manual-sjc__pricing-col--uom" />
+                    <col className="manual-sjc__pricing-col--price" />
+                    <col className="manual-sjc__pricing-col--amount" />
+                    <col className="manual-sjc__pricing-col--action" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Sl. No.</th>
@@ -953,6 +1134,8 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                               footerOptions={productFooterOptions}
                               placeholder={mastersLoading ? "Loading…" : productEmptyLabel}
                               searchPlaceholder="Search product…"
+                              clearable
+                              clearAriaLabel="Clear selected product"
                               allowCustom
                               disabled={mastersLoading || !canEditCard}
                               error={Boolean(errors[`product_lines.${index}.product_name`])}
@@ -966,6 +1149,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                               min="0.001"
                               step="any"
                               value={row.quantity}
+                              onWheel={(e) => e.currentTarget.blur()}
                               onChange={(e) => patchProductLine(index, "quantity", e.target.value)}
                               error={errors[`product_lines.${index}.quantity`]}
                               className="sjc-doc__input"
@@ -979,6 +1163,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                               options={uomOptions}
                               placeholder="Select UOM…"
                               searchPlaceholder="Search UOM…"
+                              menuClassName="manual-sjc__uom-menu"
                               allowCustom
                               disabled={!canEditCard}
                               error={Boolean(errors[`product_lines.${index}.uom`])}
@@ -992,6 +1177,7 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                               min="0"
                               step="0.01"
                               value={row.unit_price}
+                              onWheel={(e) => e.currentTarget.blur()}
                               onChange={(e) => patchProductLine(index, "unit_price", e.target.value)}
                               error={errors[`product_lines.${index}.unit_price`]}
                               className="sjc-doc__input"
@@ -1004,13 +1190,14 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                           <td>
                             <Button
                               type="button"
-                              variant="danger"
+                              variant="ghost"
                               size="icon"
+                              className="manual-sjc__remove-product-button"
                               onClick={() => removeProductLine(index)}
                               aria-label="Remove product row"
                               disabled={!canEditCard}
                             >
-                              <Trash2 className="h-4 w-4" aria-hidden />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                             </Button>
                           </td>
                         </tr>
@@ -1042,7 +1229,13 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
               </div>
               </section>
 
-              <section className="manual-sjc__section manual-sjc__section--lines" aria-labelledby="manual-sjc-specs">
+              {activeDetailTab === "specifications" ? (
+              <section
+                id="manual-sjc-panel-specifications"
+                role="tabpanel"
+                aria-labelledby="manual-sjc-tab-specifications"
+                className="manual-sjc__section manual-sjc__section--lines manual-sjc__detail-panel"
+              >
                 <h3 id="manual-sjc-specs" className="manual-sjc__section-title">
                   Technical Specifications
                 </h3>
@@ -1109,8 +1302,15 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                 </div>
               </div>
               </section>
+              ) : null}
 
-              <section className="manual-sjc__section manual-sjc__section--approval" aria-labelledby="manual-sjc-approval">
+              {activeDetailTab === "approval" ? (
+              <section
+                id="manual-sjc-panel-approval"
+                role="tabpanel"
+                aria-labelledby="manual-sjc-tab-approval"
+                className="manual-sjc__section manual-sjc__section--approval manual-sjc__detail-panel"
+              >
                 <h3 id="manual-sjc-approval" className="manual-sjc__section-title">
                   Approval
                 </h3>
@@ -1159,12 +1359,11 @@ export default function ManualSalesJobCardForm({ jobCardId = null, backTo = "/my
                 </table>
               </div>
               </section>
+              ) : null}
+
+              </div>
 
               <div className="manual-sjc__form-actions" aria-label="Job card actions">
-                <p className="manual-sjc-page__save-hint" role="note">
-                  Saving stores this job card only — it does not send it to Store Manager or Production. After
-                  saving, use <strong>Actions → Send</strong> from My Job Cards to route it.
-                </p>
                 <div className="manual-sjc__form-actions-row">
                   <Button type="button" variant="outline" onClick={handleCancel} disabled={saving}>
                     Cancel

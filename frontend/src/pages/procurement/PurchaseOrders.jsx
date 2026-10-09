@@ -23,6 +23,7 @@ import { SearchBar } from "../../components/common/SearchFilter";
 import RowActionMenu from "../../components/common/RowActionMenu";
 import PODetailModal from "../../components/procurement/PODetailModal";
 import { useToast } from "../../context/ToastContext";
+import { filterPurchaseOrdersByStatus } from "../../data/procurementMasterData";
 import {
   deletePurchaseOrder,
   getPurchaseOrdersEnriched,
@@ -185,7 +186,7 @@ export default function PurchaseOrders() {
       await updatePurchaseOrderStatus(po.id, status);
       addToast(`PO marked as ${status}`, "success");
       setSelected(null);
-      load(true);
+      await load(true);
     } catch (err) {
       addToast(apiErrorMessage(err, "Update failed"), "error");
     }
@@ -197,10 +198,11 @@ export default function PurchaseOrders() {
 
   const tabStats = useMemo(() => {
     const sum = (arr) => arr.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+    const active = filterPurchaseOrdersByStatus(rows);
     const pending = rows.filter(isPendingPurchase);
     const purchased = rows.filter(isPurchased);
     return {
-      all: { count: rows.length, amount: sum(rows) },
+      all: { count: active.length, amount: sum(active) },
       pending: { count: pending.length, amount: sum(pending) },
       purchased: { count: purchased.length, amount: sum(purchased) },
     };
@@ -208,7 +210,7 @@ export default function PurchaseOrders() {
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = rows.filter((r) => {
+    let list = filterPurchaseOrdersByStatus(rows, filters.status).filter((r) => {
       if (kpiFilter === "pending" && !isPendingPurchase(r)) return false;
       if (kpiFilter === "purchased" && !isPurchased(r)) return false;
 
@@ -221,7 +223,6 @@ export default function PurchaseOrders() {
         if (!hay.includes(q)) return false;
       }
 
-      if (filters.status && String(r.status).toLowerCase() !== filters.status) return false;
       if (filters.vendor) {
         const vendor = (r.vendor_name || "").toLowerCase();
         if (!vendor.includes(filters.vendor.toLowerCase())) return false;

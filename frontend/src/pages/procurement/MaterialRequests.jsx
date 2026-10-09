@@ -263,9 +263,9 @@ function MRDetailModal({ row, onClose, onConvert, onApproved }) {
   const handleApprove = async (approved) => {
     setApproving(true);
     try {
-      await approveMaterialRequest(row.id, { approved });
+      const response = await approveMaterialRequest(row.id, { approved });
       addToast(approved ? "Purchase requisition approved" : "Purchase requisition rejected");
-      onApproved?.();
+      onApproved?.(response.data);
       onClose();
     } catch (err) {
       addToast(err.response?.data?.detail || "Approval failed", "error");
@@ -466,8 +466,8 @@ export default function MaterialRequests() {
     setShowAdvanced(true);
   }, [searchParams]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getMRSummary(), getMREnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
@@ -752,7 +752,22 @@ export default function MaterialRequests() {
         <MRDetailModal
           row={selected}
           onClose={() => setSelected(null)}
-          onApproved={() => load()}
+          onApproved={(updatedRequest) => {
+            if (updatedRequest) {
+              setRows((current) =>
+                current.map((request) =>
+                  request.id === updatedRequest.id
+                    ? {
+                        ...request,
+                        status: updatedRequest.status,
+                        approval_status: updatedRequest.approval_status,
+                      }
+                    : request
+                )
+              );
+            }
+            void load(true);
+          }}
           onConvert={(r) => {
             setSelected(null);
             setConvertRow(r);

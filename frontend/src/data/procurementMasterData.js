@@ -44,6 +44,13 @@ export function formatInr(v) {
   return `₹${n.toLocaleString("en-IN")}`;
 }
 
+export function filterPurchaseOrdersByStatus(rows, statusFilter = "") {
+  return rows.filter((row) => {
+    const status = String(row.status || "").toLowerCase();
+    return statusFilter ? status === statusFilter : status !== "cancelled";
+  });
+}
+
 export function priorityColor(p) {
   const m = { urgent: "bg-red-100 text-red-800", high: "bg-orange-100 text-orange-800", medium: "bg-blue-100 text-blue-800", low: "bg-slate-100 text-slate-700" };
   return m[p] || m.medium;

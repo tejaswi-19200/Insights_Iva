@@ -154,7 +154,7 @@ export function resolveCompanyLogoUrl(company) {
 
 export function formatCompanyAddress(company) {
   if (!company) return "";
-  const parts = [
+  const candidates = [
     company.address_line1 || company.address,
     company.address_line2,
     company.landmark,
@@ -162,7 +162,24 @@ export function formatCompanyAddress(company) {
     company.state,
     company.pincode || company.postal_code,
     company.country,
-  ].filter(Boolean);
+  ]
+    .flatMap((part) => String(part || "").split(/[,\r\n]+/))
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const normalize = (part) => part.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  const parts = [];
+  const normalizedParts = [];
+  candidates.forEach((candidate) => {
+    const normalizedCandidate = normalize(candidate);
+    if (
+      !normalizedCandidate ||
+      normalizedParts.some((part) => part.includes(normalizedCandidate))
+    ) {
+      return;
+    }
+    parts.push(candidate);
+    normalizedParts.push(normalizedCandidate);
+  });
   return parts.join(", ");
 }
 

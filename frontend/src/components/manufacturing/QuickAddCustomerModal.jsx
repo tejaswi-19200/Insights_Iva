@@ -34,7 +34,7 @@ export default function QuickAddCustomerModal({ open, onClose, onSaved }) {
     e.preventDefault();
     if (saving) return;
     const nextErrors = {};
-    if (!name.trim()) nextErrors.name = "Customer name is required";
+    if (!name.trim()) nextErrors.name = "Company name is required";
     const emailVal = email.trim();
     if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
       nextErrors.email = "Enter a valid email address";
@@ -59,22 +59,22 @@ export default function QuickAddCustomerModal({ open, onClose, onSaved }) {
         credit_limit: 0,
       });
       const created = res?.data ?? res;
-      addToast("Customer added successfully.", "success");
+      addToast("Company added successfully.", "success");
       onSaved?.(created);
       reset();
       onClose?.();
     } catch (err) {
-      addToast(apiErrorMessage(err, "Failed to add customer."), "error");
+      addToast(apiErrorMessage(err, "Failed to add company."), "error");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <AdminModal open={open} onClose={handleClose} title="Add Customer" maxWidth="max-w-md">
+    <AdminModal open={open} onClose={handleClose} title="Add Company" maxWidth="max-w-md">
       <form onSubmit={handleSave} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Customer Name *</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Company Name *</label>
           <Input value={name} onChange={(e) => setName(e.target.value)} error={errors.name} autoFocus />
         </div>
         <div>

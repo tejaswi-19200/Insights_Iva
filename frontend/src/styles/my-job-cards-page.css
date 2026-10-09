@@ -106,7 +106,7 @@
 }
 
 .store-manual-jc-actions__materials {
-  margin-top: 1rem;
+  margin: 1rem 1rem 0;
 }
 
 .store-manual-jc-actions__materials-header {
@@ -608,6 +608,8 @@
   min-width: 0;
 }
 
+
+
 .my-job-cards-page__document-jc-no {
   font-weight: 700;
 }
@@ -665,6 +667,7 @@
 
 .my-job-cards-page__document-body .sjc-doc__paper {
   padding: 1rem 1.25rem 1.5rem;
+  margin-block: 0.75rem;
 }
 
 /* Screen workspace typography — avoid tiny print/A4 preview sizing */
@@ -921,4 +924,3 @@
     padding: 0.5rem 0.75rem 0.75rem;
   }
 }
-

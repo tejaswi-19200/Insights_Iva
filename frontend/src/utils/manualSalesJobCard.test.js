@@ -37,6 +37,7 @@ describe("manualSalesJobCard", () => {
           email: "j@acme.test",
           address_line1: "1 Main St",
           city: "Mumbai",
+          shipping_address: "Dock 2, Mumbai",
         },
         productLines: productLinesFromSalesOrderItems(
           [{ item_description: "Widget", quantity: 2, unit: "Nos", unit_price: 10 }],
@@ -50,6 +51,7 @@ describe("manualSalesJobCard", () => {
     expect(merged.header.customer_po_no).toBe("PO-77");
     expect(merged.customer.customer_name).toBe("Acme Corp");
     expect(merged.customer.contact_person).toBe("Jane");
+    expect(merged.customer.dispatch_address).toBe("Dock 2, Mumbai");
     expect(merged.order.sales_order_date).toBe("2026-03-01");
     expect(merged.order.delivery_date).toBe("2026-03-20");
     expect(merged.order.payment_terms).toBe("Net 30");
@@ -132,6 +134,26 @@ describe("manualSalesJobCard", () => {
 
     expect(payload.expected_version).toBe(3);
     expect(payload.finalize).toBe(true);
+  });
+
+  it("round-trips a payment terms description through the manual job card form", () => {
+    const payload = buildManualPayload({
+      ...emptyManualForm(),
+      order: {
+        ...emptyManualForm().order,
+        payment_terms: "Net 30",
+        payment_terms_description: "Payment due within 30 days of invoice.",
+      },
+    });
+
+    expect(payload.manual_document.order.payment_terms_description).toBe(
+      "Payment due within 30 days of invoice."
+    );
+    expect(
+      manualFormFromApi({
+        manual_document: payload.manual_document,
+      }).order.payment_terms_description
+    ).toBe("Payment due within 30 days of invoice.");
   });
 
   it("recalculates line amount in save payload", () => {

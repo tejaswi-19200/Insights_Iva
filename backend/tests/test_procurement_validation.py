@@ -1,4 +1,6 @@
 from datetime import date
+from types import SimpleNamespace
+
 import pytest
 from pydantic import ValidationError
 
@@ -8,6 +10,7 @@ from app.schemas.procurement import (
     MaterialRequestLineCreate,
     PurchaseOrderBase,
     PurchaseOrderLineCreate,
+    PurchaseOrderSupplierRead,
     SupplierPaymentCreate,
     SupplierPaymentUpdate,
 )
@@ -157,6 +160,16 @@ def test_purchase_order_line_create_valid_quantity():
 
     line2 = PurchaseOrderLineCreate(item_id=1, quantity=50.0)
     assert line2.quantity == 50.0
+
+
+def test_purchase_order_supplier_read_accepts_orm_attributes():
+    supplier = SimpleNamespace(id=1, name="ABC Industrial Supplies Pvt Ltd")
+
+    result = PurchaseOrderSupplierRead.model_validate(supplier)
+
+    assert result.id == 1
+    assert result.name == "ABC Industrial Supplies Pvt Ltd"
+    assert result.email is None
 
 
 def test_purchase_order_line_create_negative_unit_price_rejected():

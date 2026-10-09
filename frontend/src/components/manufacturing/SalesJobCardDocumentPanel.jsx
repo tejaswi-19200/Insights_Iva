@@ -37,6 +37,7 @@ export default function SalesJobCardDocumentPanel({
   emptyMessage = "Select a job card from the list below, or click New Job Card to create one.",
   showMaterialStatus = false,
   onSend,
+  showToolbarSendButton = true,
 }) {
   const { user } = useAuth();
   const tenantId = useTenantId();
@@ -169,6 +170,7 @@ export default function SalesJobCardDocumentPanel({
     productionMode: showMaterialStatus,
   });
   const showSendButton =
+    showToolbarSendButton &&
     Boolean(onSend) &&
     isManual &&
     hasSelection &&

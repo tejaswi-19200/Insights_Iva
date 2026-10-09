@@ -20,9 +20,8 @@ import StoreManagerJobCardDocumentPanel from "../../components/manufacturing/Sto
 import useAuth from "../../hooks/useAuth";
 import usePageRefresh from "../../hooks/usePageRefresh";
 import { deleteManualJobCard, getMyJobCardQueue, getWorkflowRoutingMeta } from "../../api/workflowApi";
-import { deleteSalesOrder, getSalesOrdersEnriched } from "../../api/salesApi";
+import { deleteSalesOrder } from "../../api/salesApi";
 import { fetchCustomersWithFallback } from "../../utils/customerOptions";
-import { asArray } from "../../utils/apiError";
 import {
   isAccountant,
   isAdmin,
@@ -170,7 +169,6 @@ export default function MyJobCardsPage() {
   const [searching, setSearching] = useState(false);
   const [serverSearchActive, setServerSearchActive] = useState(false);
   const [customerSelectOptions, setCustomerSelectOptions] = useState([]);
-  const [salesOrderSelectOptions, setSalesOrderSelectOptions] = useState([]);
   const [sendTarget, setSendTarget] = useState(null);
   const deleteInFlight = useRef(false);
   const searchInFlight = useRef(false);
@@ -321,23 +319,12 @@ export default function MyJobCardsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await getSalesOrdersEnriched({ limit: 500 });
-        if (cancelled) return;
-        const orders = asArray(res?.data ?? res);
-        const numbers = [...new Set(orders.map((o) => o.order_number).filter(Boolean))].sort();
-        setSalesOrderSelectOptions(numbers.map((n) => ({ value: n, label: n })));
-      } catch {
-        if (!cancelled) setSalesOrderSelectOptions([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const salesOrderSelectOptions = useMemo(() => {
+    const numbers = [
+      ...new Set(rows.map((row) => String(row.order_number || "").trim()).filter(Boolean)),
+    ].sort();
+    return numbers.map((number) => ({ value: number, label: number }));
+  }, [rows]);
 
   const statusFromUrl = searchParams.get("status");
   useEffect(() => {
@@ -401,19 +388,20 @@ export default function MyJobCardsPage() {
     if (f.status) {
       list = list.filter((r) => matchesErpListStatusFilter(r, f.status));
     }
-    if (!serverSearchActive) {
-      if (f.customer) {
-        const custLabel =
-          customerSelectOptions.find((o) => o.value === f.customer)?.label || f.customer;
-        list = list.filter(
-          (r) =>
-            String(r.customer_id || "") === String(f.customer)
-            || String(r.customer_name || "") === custLabel
-        );
-      }
-      if (f.salesOrderNo.trim()) {
-        list = list.filter((r) => String(r.order_number || "") === f.salesOrderNo);
-      }
+    if (f.customer) {
+      const custLabel =
+        customerSelectOptions.find((o) => o.value === f.customer)?.label || f.customer;
+      list = list.filter(
+        (r) =>
+          String(r.customer_id || "") === String(f.customer)
+          || String(r.customer_name || "").trim().toLowerCase() === custLabel.trim().toLowerCase()
+      );
+    }
+    if (f.salesOrderNo.trim()) {
+      const selectedOrder = f.salesOrderNo.trim().toLowerCase();
+      list = list.filter(
+        (r) => String(r.order_number || "").trim().toLowerCase() === selectedOrder
+      );
     }
     if (f.product) {
       list = list.filter((r) => String(r.product_name || "") === f.product);

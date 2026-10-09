@@ -179,11 +179,13 @@ export function Textarea({
   required,
   rows = 3,
   className = "",
+  inputRef,
   ...props
 }) {
   return (
     <FormField label={label} error={error} hint={hint} required={required}>
       <textarea
+        ref={inputRef}
         rows={rows}
         className={`ui-textarea min-h-[80px] resize-y ${error ? "is-error" : ""} ${className}`.trim()}
         {...props}

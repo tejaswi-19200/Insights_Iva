@@ -168,6 +168,7 @@ export function emptyManualForm(preparedBy = "") {
       phone: "",
       email: "",
       billing_address: "",
+      dispatch_address: "",
     },
     order: {
       sales_order_date: "",
@@ -175,6 +176,7 @@ export function emptyManualForm(preparedBy = "") {
       product_category: "",
       end_use: "",
       payment_terms: "",
+      payment_terms_description: "",
       priority: "medium",
       remarks: "",
     },
@@ -242,6 +244,7 @@ export function mergeManualApiDocuments(manualDoc, salesDoc) {
       phone: pickDocValue(manualCustomer.phone, salesCustomer.phone),
       email: pickDocValue(manualCustomer.email, salesCustomer.email),
       billing_address: pickDocValue(manualCustomer.billing_address, salesCustomer.billing_address),
+      dispatch_address: pickDocValue(manualCustomer.dispatch_address, salesCustomer.dispatch_address),
     },
     order: {
       ...salesOrder,
@@ -251,6 +254,10 @@ export function mergeManualApiDocuments(manualDoc, salesDoc) {
       product_category: pickDocValue(manualOrder.product_category, salesOrder.product_category),
       end_use: pickDocValue(manualOrder.end_use, salesOrder.end_use),
       payment_terms: pickDocValue(manualOrder.payment_terms, salesOrder.payment_terms),
+      payment_terms_description: pickDocValue(
+        manualOrder.payment_terms_description,
+        salesOrder.payment_terms_description
+      ),
       priority: pickDocValue(manualOrder.priority, salesOrder.priority) || "medium",
       remarks: pickDocValue(manualOrder.remarks, salesOrder.remarks),
     },
@@ -286,6 +293,7 @@ export function manualFormFromApi(data) {
       phone: customer.phone || "",
       email: customer.email || "",
       billing_address: customer.billing_address || "",
+      dispatch_address: customer.dispatch_address || "",
     },
     order: {
       sales_order_date: (order.sales_order_date || "").slice(0, 10),
@@ -293,6 +301,7 @@ export function manualFormFromApi(data) {
       product_category: order.product_category || "",
       end_use: order.end_use || "",
       payment_terms: order.payment_terms || "",
+      payment_terms_description: order.payment_terms_description || "",
       priority: order.priority || "medium",
       remarks: order.remarks || "",
     },
@@ -380,6 +389,7 @@ export function customerFieldsFromMaster(customer) {
     phone: customer.phone || "",
     email: customer.email || "",
     billing_address: formatCustomerAddress(customer) || "",
+    dispatch_address: customer.shipping_address || customer.dispatch_address || "",
   };
 }
 
@@ -474,7 +484,7 @@ export function validateManualForm(form) {
     errors["header.sales_order_no"] = "Sales Order No. is required";
   }
   if (!String(form.customer?.customer_name || "").trim()) {
-    errors["customer.customer_name"] = "Customer Name is required";
+    errors["customer.customer_name"] = "Company Name is required";
   }
   const email = String(form.customer?.email || "").trim();
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

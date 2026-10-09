@@ -76,6 +76,7 @@ export default function SearchableSelect({
   allowCustom = false,
   className = "",
   menuClassName = "",
+  placement = "bottom",
   id,
   onQueryChange,
   onOpenChange,
@@ -203,7 +204,9 @@ export default function SearchableSelect({
 
       {open ? (
         <div
-          className={`absolute left-0 right-0 top-full z-40 mt-1 flex max-h-[min(20rem,70vh)] flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg ${menuClassName}`.trim()}
+          className={`absolute left-0 right-0 z-40 flex max-h-[min(20rem,70vh)] flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg ${
+            placement === "top" ? "bottom-full mb-1" : "top-full mt-1"
+          } ${menuClassName}`.trim()}
         >
           {searchable ? (
             <div className="shrink-0 border-b border-[var(--color-border-muted)] p-2">

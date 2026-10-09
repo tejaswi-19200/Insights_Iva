@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ImagePlus, Plus, Trash2, X } from "lucide-react";
+import { ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import AddCustomFieldModal from "./AddCustomFieldModal";
 import Button from "../common/Button";
@@ -203,7 +203,9 @@ export default function EditCompanyDetailsModal({ open, onClose, onSaved }) {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="flex h-[88px] w-[140px] flex-col items-center justify-center rounded-xl border border-dashed border-[#c8c8d0] bg-[#fafafa] text-[12px] font-medium text-[#8a8a95] hover:border-[#a0a0ab]"
+                  className="relative flex h-[88px] w-[140px] flex-col items-center justify-center rounded-xl border border-dashed border-[#c8c8d0] bg-[#fafafa] text-[12px] font-medium text-[#8a8a95] hover:border-[#a0a0ab]"
+                  aria-label={form.logo_url ? "Change company logo" : "Add company logo"}
+                  title={form.logo_url ? "Change company logo" : "Add company logo"}
                 >
                   {form.logo_url ? (
                     <img
@@ -217,6 +219,11 @@ export default function EditCompanyDetailsModal({ open, onClose, onSaved }) {
                       Add Logo
                     </>
                   )}
+                  {form.logo_url ? (
+                    <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-[#6b7280] shadow-sm">
+                      <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                    </span>
+                  ) : null}
                 </button>
                 <input
                   ref={fileRef}

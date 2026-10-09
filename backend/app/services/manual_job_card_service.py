@@ -70,6 +70,7 @@ def empty_manual_document() -> dict[str, Any]:
             "phone": "",
             "email": "",
             "billing_address": "",
+            "dispatch_address": "",
         },
         "order": {
             "sales_order_date": "",
@@ -77,6 +78,7 @@ def empty_manual_document() -> dict[str, Any]:
             "product_category": "",
             "end_use": "",
             "payment_terms": "",
+            "payment_terms_description": "",
             "priority": "medium",
             "remarks": "",
         },
@@ -1266,6 +1268,7 @@ def build_manual_sales_document(jc: SalesJobCard, doc: dict[str, Any]) -> dict[s
             "phone": customer.get("phone"),
             "email": customer.get("email"),
             "billing_address": customer.get("billing_address"),
+            "dispatch_address": customer.get("dispatch_address"),
         },
         "order_details": {
             "sales_order_date": order.get("sales_order_date"),
@@ -1275,6 +1278,7 @@ def build_manual_sales_document(jc: SalesJobCard, doc: dict[str, Any]) -> dict[s
             "product_category": order.get("product_category"),
             "end_use": order.get("end_use"),
             "payment_terms": order.get("payment_terms"),
+            "payment_terms_description": order.get("payment_terms_description"),
             "priority": order.get("priority") or jc.priority,
             "remarks": order.get("remarks") or jc.notes,
             "sales_person": jc.sales_person_name,
