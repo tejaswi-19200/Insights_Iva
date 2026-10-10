@@ -328,10 +328,10 @@ export default function Preboarding() {
         seen.add(key);
         return true;
       });
-      setRecords(deduped.length ? deduped : DEFAULT_CANDIDATES);
+      setRecords(deduped);
     } catch {
       const localRows = loadLocalCandidates();
-      setRecords(localRows.length ? [...localRows, ...DEFAULT_CANDIDATES] : DEFAULT_CANDIDATES);
+      setRecords(localRows);
     } finally {
       setLoading(false);
     }

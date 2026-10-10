@@ -63,6 +63,36 @@ const tooltipStyle = {
   backgroundColor: "var(--color-surface)",
 };
 
+const EMPTY_ERP_DASHBOARD = {
+  dashboard_profile: "admin",
+  visible_sections: [
+    "kpi",
+    "quick_actions",
+    "todays_summary",
+    "orders_overview",
+    "inventory",
+    "alerts",
+    "production_overview",
+    "shop_floor",
+    "production_pipeline",
+    "top_machines",
+    "recent_work_orders",
+  ],
+  kpi_cards: [
+    { id: "total-orders", title: "Total Orders", value: "0", change: "0%", trend: "up", icon: "shoppingCart" },
+    { id: "today-production", title: "Today's Production", value: "0", change: "0%", trend: "up", icon: "factory" },
+    { id: "machines-running", title: "Machines Running", value: "0/0", change: "0%", trend: "up", icon: "wrench" },
+    { id: "pending-orders", title: "Pending Orders", value: "0", change: "0", trend: "up", icon: "clock" },
+    { id: "pending-approvals", title: "Pending Approvals", value: "0", change: "0 new", trend: "up", icon: "alertTriangle" },
+  ],
+  production_overview: [],
+  orders_overview: { pending: 0, in_progress: 0, completed: 0, total: 0 },
+  inventory: { total_items: 0, low_stock: 0, out_of_stock: 0, valuation: 0 },
+  recent_work_orders: [],
+  shop_floor: [],
+  alerts: [],
+};
+
 const DEFAULT_ERP_DASHBOARD = {
   dashboard_profile: "admin",
   visible_sections: [
@@ -977,13 +1007,13 @@ export default function ReferenceDashboard() {
           setApiData(dashRes.data);
           setError(null);
         } else {
-          setApiData(DEFAULT_ERP_DASHBOARD);
-          setError("Unable to load dashboard.");
+          setApiData(EMPTY_ERP_DASHBOARD);
+          setError(null);
         }
         setLoading(false);
       })
       .catch((err) => {
-        setApiData(DEFAULT_ERP_DASHBOARD);
+        setApiData(EMPTY_ERP_DASHBOARD);
         setError(err?.message || "Unable to load dashboard.");
         setLoading(false);
       });

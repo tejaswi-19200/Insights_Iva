@@ -30,11 +30,18 @@ export const PRODUCTION_MANAGER_ALLOWED_CHILDREN = new Set([
   "/inventory/finished-goods",
   "/inventory/stock-transfer",
   "/inventory/pending-inventory-checks",
+  "/inventory/material-requests",
+  "/inventory/issue-materials",
+  "/inventory/stock-return",
+  "/procurement/material-requests",
 
   "/quality",
   "/quality/in-process",
   "/quality/final",
   "/quality/batch-reports",
+  "/quality/defects",
+  "/quality/inspection",
+  "/hr/attendance",
 
   "/maintenance",
   "/maintenance/equipment",
@@ -194,14 +201,15 @@ export function productionManagerPathAllowed(pathname) {
   if (path.startsWith("/inventory/finished-goods")) return true;
   if (path.startsWith("/inventory/stock-transfer")) return true;
   if (path.startsWith("/inventory/pending-inventory-checks")) return true;
-  if (path.startsWith("/quality/")) {
-    return (
-      path === "/quality" ||
-      path.startsWith("/quality/in-process") ||
-      path.startsWith("/quality/final") ||
-      path.startsWith("/quality/batch-reports")
-    );
+  if (path.startsWith("/inventory/material-requests")) return true;
+  if (path.startsWith("/inventory/issue-materials")) return true;
+  if (path.startsWith("/inventory/stock-return")) return true;
+  if (path.startsWith("/procurement/material-requests")) return true;
+  if (path.startsWith("/quality")) {
+    if (path === "/quality/incoming" || path.startsWith("/quality/incoming/")) return false;
+    return true;
   }
+  if (path.startsWith("/hr/attendance")) return true;
   if (path.startsWith("/maintenance/")) return true;
   if (path.startsWith("/alerts/")) {
     return (

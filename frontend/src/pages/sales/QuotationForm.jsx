@@ -12,6 +12,7 @@ import {
   PenLine,
   Pencil,
   Plus,
+  GripVertical,
   Ban,
   Search,
   RotateCcw,
@@ -34,6 +35,7 @@ import AddContactPersonModal from "../../components/sales/AddContactPersonModal"
 import AddCustomFieldModal from "../../components/sales/AddCustomFieldModal";
 import AddInvoiceDiscountModal from "../../components/sales/AddInvoiceDiscountModal";
 import AddNewItemModal from "../../components/sales/AddNewItemModal";
+import ItemPickerDropdown from "../../components/sales/ItemPickerDropdown";
 import ProductDetailModal from "../../components/masters/ProductDetailModal";
 import ItemSelectionModal from "../../components/sales/ItemSelectionModal";
 import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
@@ -840,6 +842,9 @@ export default function QuotationForm() {
 
   const [itemSearch, setItemSearch] =
     useState("");
+  const [highlightedIdx, setHighlightedIdx] = useState(0);
+  const [dragRowIdx, setDragRowIdx] = useState(null);
+  const [itemToEdit, setItemToEdit] = useState(null);
 
   const [items, setItems] = useState([
     emptyItem(),
@@ -1750,6 +1755,7 @@ export default function QuotationForm() {
 
     setItemPickerIdx(null);
     setItemSearch("");
+    setHighlightedIdx(0);
   };
 
   const addEmptyItemRow = () => {
@@ -1757,41 +1763,27 @@ export default function QuotationForm() {
   };
 
   const filteredProducts = useMemo(() => {
-    const q =
-      itemSearch
-        .trim()
-        .toLowerCase();
-
-    const sellableProducts = products.filter((product) =>
-      String(product.status || "active").toLowerCase() === "active" &&
-      product.is_sellable === true
+    const q = itemSearch.trim().toLowerCase();
+    const sellableProducts = products.filter(
+      (product) =>
+        String(product.status || "active").toLowerCase() === "active" &&
+        product.is_sellable === true
     );
+    const pool = sellableProducts.length > 0 ? sellableProducts : products;
 
-    if (!q) {
-      return sellableProducts.slice(
-        0,
-        40
-      );
+    const curDesc = (items[itemPickerIdx]?.item_description || "").trim().toLowerCase();
+    if (!q || (itemPickerIdx !== null && q === curDesc)) {
+      return pool.slice(0, 40);
     }
 
-    return sellableProducts
+    return pool
       .filter((p) =>
-        [
-          p.name,
-          p.sku,
-          p.hsn_code,
-          p.product_code,
-          p.category,
-        ]
+        [p.name, p.sku, p.hsn_code, p.product_code, p.category]
           .filter(Boolean)
-          .some((v) =>
-            String(v)
-              .toLowerCase()
-              .includes(q)
-          )
+          .some((v) => String(v).toLowerCase().includes(q))
       )
       .slice(0, 40);
-  }, [products, itemSearch]);
+  }, [products, itemSearch, itemPickerIdx, items]);
 
   const getProductForRow = (row) => {
     if (!row) return null;
@@ -3037,7 +3029,7 @@ export default function QuotationForm() {
                 <thead className="ui-table-head">
                   <tr>
                     {[
-                      "#",
+                      "S.No",
                       "Item Name",
                       "HSN",
                       "Qty Unit",
@@ -3048,11 +3040,9 @@ export default function QuotationForm() {
                       "GST",
                       "Total Amt",
                       "",
-                    ].map((h) => (
+                    ].map((h, hi) => (
                       <th
-                        key={
-                          h || "x"
-                        }
+                        key={`${h}-${hi}`}
                         className="whitespace-nowrap border-b border-r border-[#d0d0d8] px-2 py-2.5 font-semibold last:border-r-0"
                       >
                         {h}
@@ -3077,9 +3067,36 @@ export default function QuotationForm() {
                       return (
                         <tr
                           key={idx}
+                          draggable
+                          onDragStart={(e) => {
+                            setDragRowIdx(idx);
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setData("text/plain", String(idx));
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const sourceIdx = dragRowIdx !== null ? dragRowIdx : parseInt(e.dataTransfer.getData("text/plain"), 10);
+                            if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                            setItems((prev) => {
+                              const updated = [...prev];
+                              const [removed] = updated.splice(sourceIdx, 1);
+                              updated.splice(idx, 0, removed);
+                              return updated;
+                            });
+                            setDragRowIdx(null);
+                          }}
+                          onDragEnd={() => setDragRowIdx(null)}
+                          className={`transition-colors ${dragRowIdx === idx ? "opacity-40 bg-blue-50/50" : ""}`}
                         >
                           <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">
-                            {idx + 1}
+                            <div className="flex items-center justify-center gap-1 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder row">
+                              <GripVertical className="h-3.5 w-3.5 text-[#a0a0ab] hover:text-blue-600 shrink-0" />
+                              <span>{idx + 1}</span>
+                            </div>
                           </td>
 
                           <td className="border-b border-r border-[#d0d0d8] px-2.5 py-2 min-w-[220px]">
@@ -3110,27 +3127,6 @@ export default function QuotationForm() {
                                     <Info className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
-
-                                {row.showDescription || row.long_description ? (
-                                  <div className="mt-1">
-                                    <textarea
-                                      rows={2}
-                                      value={row.long_description || ""}
-                                      onChange={(e) => updateItem(idx, "long_description", e.target.value)}
-                                      placeholder="Enter line item description..."
-                                      className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
-                                    />
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => updateItem(idx, "showDescription", true)}
-                                    className="mt-0.5 inline-flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400 cursor-pointer"
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    Add Description
-                                  </button>
-                                )}
                               </div>
                             ) : (
                               <div className="relative min-w-[190px]">
@@ -3143,14 +3139,37 @@ export default function QuotationForm() {
                                         ? itemSearch
                                         : row.item_description || ""
                                     }
-                                    onFocus={() => {
+                                    onFocus={(e) => {
                                       setItemPickerIdx(idx);
                                       setItemSearch(row.item_description || "");
+                                      setHighlightedIdx(0);
+                                      e?.target?.select?.();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (filteredProducts.length > 0) {
+                                          const selected = filteredProducts[highlightedIdx] || filteredProducts[0];
+                                          if (selected) {
+                                            selectProductForRow(idx, selected);
+                                          }
+                                        }
+                                      } else if (e.key === "ArrowDown") {
+                                        e.preventDefault();
+                                        setHighlightedIdx((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                                      } else if (e.key === "ArrowUp") {
+                                        e.preventDefault();
+                                        setHighlightedIdx((prev) => Math.max(prev - 1, 0));
+                                      } else if (e.key === "Escape") {
+                                        setItemPickerIdx(null);
+                                      }
                                     }}
                                     onChange={(e) => {
                                       const v = e.target.value;
                                       setItemPickerIdx(idx);
                                       setItemSearch(v);
+                                      setHighlightedIdx(0);
                                       updateItem(idx, "item_description", v);
                                     }}
                                     onBlur={() => {
@@ -3169,51 +3188,38 @@ export default function QuotationForm() {
                                       setItemModalTargetIdx(idx);
                                     }}
                                     title="Browse & select all items in popup modal"
-                                    className="ml-1 shrink-0 p-0.5 text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity cursor-pointer"
+                                    className="ml-1 shrink-0 p-0.5 text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"
                                   >
                                     <Grid2x2 className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
 
                                 {itemPickerIdx === idx ? (
-                                  <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl transition-all">
-                                    {filteredProducts.length === 0 ? (
-                                      <p className="px-3 py-2.5 text-[12px] text-slate-500">
-                                        No products found.{" "}
-                                        <button
-                                          type="button"
-                                          className="font-semibold text-indigo-600 hover:underline"
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => setAddItemOpen(true)}
-                                        >
-                                          + Add New Item
-                                        </button>
-                                      </p>
-                                    ) : (
-                                      filteredProducts.map((p) => (
-                                        <button
-                                          key={p.id}
-                                          type="button"
-                                          className="block w-full rounded-xl px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition"
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => selectProductForRow(idx, p)}
-                                        >
-                                          <span className="font-bold text-[#111827] dark:text-slate-100 text-[13px] block leading-tight">
-                                            {p.name || p.sku}
-                                          </span>
-                                          <span className="mt-0.5 block text-[11px] text-[#6b7280]">
-                                            {[
-                                              p.sku,
-                                              p.hsn_code ? `HSN ${p.hsn_code}` : null,
-                                              p.current_stock != null ? `Stock ${p.current_stock}` : null,
-                                            ]
-                                              .filter(Boolean)
-                                              .join(" · ")}
-                                          </span>
-                                        </button>
-                                      ))
-                                    )}
-                                  </div>
+                                  <ItemPickerDropdown
+                                    products={filteredProducts}
+                                    selectedIndex={highlightedIdx}
+                                    onSelectProduct={(p) => selectProductForRow(idx, p)}
+                                    onAddNewItem={() => {
+                                      setItemToEdit(null);
+                                      setAddItemOpen(true);
+                                    }}
+                                    onEditItem={(p) => {
+                                      setItemToEdit(p);
+                                      setAddItemOpen(true);
+                                    }}
+                                    onToggleInactive={(p) => {
+                                      setProducts((prev) =>
+                                        prev.map((item) =>
+                                          item.id === p.id
+                                            ? { ...item, status: item.status === "inactive" ? "active" : "inactive" }
+                                            : item
+                                        )
+                                      );
+                                    }}
+                                    onDeleteItem={(p) => {
+                                      setProducts((prev) => prev.filter((item) => item.id !== p.id));
+                                    }}
+                                  />
                                 ) : null}
                               </div>
                             )}
@@ -3923,9 +3929,11 @@ export default function QuotationForm() {
 
       <AddNewItemModal
         open={addItemOpen}
-        onClose={() =>
-          setAddItemOpen(false)
-        }
+        item={itemToEdit}
+        onClose={() => {
+          setAddItemOpen(false);
+          setItemToEdit(null);
+        }}
         onSaved={(line) => {
           if (!line) {
             return;

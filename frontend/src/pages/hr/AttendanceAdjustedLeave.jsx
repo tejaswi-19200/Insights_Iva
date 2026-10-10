@@ -98,7 +98,7 @@ function EmployeeFilterSelect({ value, onChange, employees }) {
 
 export default function AttendanceAdjustedLeave() {
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
+  const [employees, setEmployees] = useState([]);
   const [records, setRecords] = useState([]);
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
@@ -109,10 +109,9 @@ export default function AttendanceAdjustedLeave() {
     try {
       const empRes = await getEmployeesEnriched();
       const empList = empRes?.data || [];
-      const currentEmps = empList.length ? empList : [DEMO_EMPLOYEE];
-      setEmployees(currentEmps);
+      setEmployees(empList);
 
-      const sampleAdj = currentEmps.slice(0, 3).map((emp, idx) => {
+      const sampleAdj = empList.slice(0, 3).map((emp, idx) => {
         const empName = emp.full_name || emp.name || "Employee";
         const empId = emp.employee_id || emp.employee_code || `EMP-${idx + 1}`;
         return {
@@ -127,9 +126,9 @@ export default function AttendanceAdjustedLeave() {
         };
       });
 
-      setRecords(sampleAdj);
+      setRecords([]);
     } catch {
-      setEmployees([DEMO_EMPLOYEE]);
+      setEmployees([]);
       setRecords([]);
     } finally {
       setLoading(false);

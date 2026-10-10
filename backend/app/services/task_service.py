@@ -43,6 +43,17 @@ def delete_task(db: Session, tenant_id: int, task_id: int) -> bool:
     task = get_task(db, tenant_id, task_id)
     if not task:
         return False
+    # Clean up child tasks if present
+    child_tasks = list(
+        db.scalars(
+            select(Task).where(
+                Task.tenant_id == tenant_id,
+                Task.parent_id == task_id,
+            )
+        ).all()
+    )
+    for ct in child_tasks:
+        db.delete(ct)
     db.delete(task)
     db.commit()
     return True

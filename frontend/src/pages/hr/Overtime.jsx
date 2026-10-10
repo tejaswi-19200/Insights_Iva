@@ -565,7 +565,7 @@ function FilterPopover({ open, onClose, branch, department, onBranchChange, onDe
 export default function Overtime() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
+  const [employees, setEmployees] = useState([]);
   const [records, setRecords] = useState([]);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -586,10 +586,9 @@ export default function Overtime() {
     try {
       const empRes = await getEmployeesEnriched();
       const empList = empRes?.data || [];
-      const currentEmps = empList.length ? empList : [DEMO_EMPLOYEE];
-      setEmployees(currentEmps);
+      setEmployees(empList);
 
-      const sampleOt = currentEmps.slice(0, 4).map((emp, idx) => {
+      const sampleOt = empList.slice(0, 4).map((emp, idx) => {
         const empName = emp.full_name || emp.name || "Employee";
         const empId = emp.employee_id || emp.employee_code || `EMP-${idx + 1}`;
         return {
@@ -608,11 +607,11 @@ export default function Overtime() {
         };
       });
 
-      setRecords(sampleOt);
-      setSelectedRowId(sampleOt[0]?.id || null);
+      setRecords(empList.length ? sampleOt : []);
+      setSelectedRowId(empList.length ? sampleOt[0]?.id : null);
       setSelectedIds([]);
     } catch {
-      setEmployees([DEMO_EMPLOYEE]);
+      setEmployees([]);
       setRecords([]);
     } finally {
       setLoading(false);

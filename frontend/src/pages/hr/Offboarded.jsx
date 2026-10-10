@@ -505,9 +505,9 @@ export default function Offboarded() {
     try {
       const res = await getOffboardedEmployees();
       const rows = Array.isArray(res?.data) ? res.data : [];
-      setRecords(rows.length ? rows : DEFAULT_OFFBOARDED);
+      setRecords(rows);
     } catch {
-      setRecords(DEFAULT_OFFBOARDED);
+      setRecords([]);
     } finally {
       setLoading(false);
     }

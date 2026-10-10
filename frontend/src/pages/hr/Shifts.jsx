@@ -460,9 +460,9 @@ export default function Shifts() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("shifts");
-  const [shifts, setShifts] = useState([DEMO_SHIFT]);
+  const [shifts, setShifts] = useState([]);
   const [assigned, setAssigned] = useState([]);
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
+  const [employees, setEmployees] = useState([]);
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [pageSize, setPageSize] = useState(25);
@@ -491,13 +491,13 @@ export default function Shifts() {
         getEmployeesEnriched(),
       ]);
       const list = shiftRes?.data || [];
-      setShifts(list.length ? list.map(normalizeShift) : [DEMO_SHIFT]);
+      setShifts(list.map(normalizeShift));
       setAssigned(assignedRes?.data || []);
-      setEmployees(empRes?.data?.length ? empRes.data : [DEMO_EMPLOYEE]);
+      setEmployees(empRes?.data || []);
     } catch {
-      setShifts([DEMO_SHIFT]);
+      setShifts([]);
       setAssigned([]);
-      setEmployees([DEMO_EMPLOYEE]);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }

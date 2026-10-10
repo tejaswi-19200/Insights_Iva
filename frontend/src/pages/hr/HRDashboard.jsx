@@ -35,7 +35,7 @@ import {
   getPayrollEnriched,
   getShifts,
 } from "../../api/hrApi";
-import { DEMO_HR_DASHBOARD, mergeHrDashboard } from "../../data/hrMasterData";
+import { EMPTY_HR_DASHBOARD, mergeHrDashboard } from "../../data/hrMasterData";
 import {
   getCheckInSession,
   saveCheckInSession,
@@ -515,7 +515,7 @@ function EmptyIllustration({ type }) {
 export default function HRDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(DEMO_HR_DASHBOARD);
+  const [data, setData] = useState(EMPTY_HR_DASHBOARD);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setLoading(true);
@@ -545,7 +545,7 @@ export default function HRDashboard() {
       );
     } catch (err) {
       if (isRefresh) throw err;
-      setData(DEMO_HR_DASHBOARD);
+      setData(EMPTY_HR_DASHBOARD);
     } finally {
       setLoading(false);
     }

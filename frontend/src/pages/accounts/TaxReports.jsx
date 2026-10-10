@@ -31,8 +31,10 @@ export default function TaxReports() {
     setLoading(true);
     try {
       const res = await getGSTExtended(year);
-      if (res.data) setData({ ...DEMO_GST, ...res.data });
+      if (res.data) setData(res.data);
+      else setData(DEMO_GST);
     } catch {
+      setData(DEMO_GST);
     } finally {
       setLoading(false);
     }

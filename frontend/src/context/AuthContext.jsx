@@ -112,7 +112,14 @@ function clearTenantDataCaches() {
         k &&
         (k.startsWith("smrt_") ||
           k.startsWith("gns_") ||
-          k.startsWith("smrt-company-"))
+          k.startsWith("iva_") ||
+          k.startsWith("smrt-company-") ||
+          k.startsWith("starred_") ||
+          k.startsWith("local_") ||
+          k.startsWith("custom_") ||
+          k.startsWith("payment_modes") ||
+          k.includes("leave_records") ||
+          k.includes("production_orders"))
       ) {
         if (
           !k.startsWith("smrt-token") &&

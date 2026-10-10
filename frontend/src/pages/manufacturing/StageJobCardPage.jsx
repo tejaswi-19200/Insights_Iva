@@ -619,7 +619,7 @@ export default function StageJobCardPage() {
                 }}
                 disabled={!card?.editable}
               >
-                <option value="">Select Machine...</option>
+                <option value="">Select Machine</option>
                 {isAdmin ? (
                   <option value="__add_machine__">+ Add new Machine</option>
                 ) : null}

@@ -232,11 +232,6 @@ def operator_assigned_jobs(
     user: User = Depends(require_permission("production")),
     db: Session = Depends(get_db),
 ):
-    from app.core.workflow_constants import TEAM_OPERATOR, user_teams
-
-    teams = user_teams(get_role_names(user))
-    if TEAM_OPERATOR not in teams and not user_is_admin(user):
-        raise HTTPException(status_code=403, detail="Operator role required")
     return {
         "items": list_operator_assigned_jobs(
             db, user.tenant_id, user, status_filter=status, limit=limit

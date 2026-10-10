@@ -1005,13 +1005,13 @@ export default function WorkOrders() {
           printDetailWorkOrder ? "hidden print:hidden" : "print:m-0 print:block"
         }`}
       >
-        <div className="mb-4 hidden border-b pb-4 print:block">
-          <div className="flex justify-between items-center mb-2 text-xs text-slate-600">
+        <div className="mb-4 hidden border-b pb-4 print:block print-header-container">
+          <div className="flex justify-between items-center mb-2 text-xs text-slate-600 print-header-top">
             <span className="font-bold text-blue-600 text-xs tracking-wide">Production · Work Orders</span>
             <span className="font-bold text-blue-600 text-xs tracking-wide">Insights Iva</span>
           </div>
-          <h1 className="text-xl font-bold text-black">Work Orders Report</h1>
-          <p className="text-xs text-slate-600 mt-1">
+          <h1 className="text-xl font-bold text-black print-header-title">Work Orders Report</h1>
+          <p className="text-xs text-slate-600 mt-1 print-header-meta">
             Generated on: {new Date().toLocaleDateString()} | Total Work Orders: {filtered.length}
             {(user?.full_name || user?.name) ? ` | Printed By: ${user.full_name || user.name}` : ""}
           </p>
@@ -1565,8 +1565,8 @@ export default function WorkOrders() {
       <style>{`
         @media print {
           @page {
-            size: landscape;
-            margin: 4mm;
+            size: A4 landscape;
+            margin: 6mm;
           }
           *, *::before, *::after {
             box-shadow: none !important;
@@ -1578,69 +1578,76 @@ export default function WorkOrders() {
             width: 0 !important;
             height: 0 !important;
           }
-          html, body, #root {
+          html, body, #root, main, #main-content, .app-shell, .ui-page, .ui-list-page, .ui-list-page__stack, .ui-list-card, .ui-list-card__body, .ui-table-wrap {
             width: 100% !important;
             max-width: 100% !important;
+            min-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
-            background-color: #fff !important;
-            color: #000 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            float: none !important;
+            display: block !important;
           }
-          div, section, article, main, table, .overflow-x-auto {
-            overflow: visible !important;
-            overflow-x: visible !important;
-            overflow-y: visible !important;
+          .print-header-container {
+            display: block !important;
             width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            border-radius: 0 !important;
+            margin-bottom: 12px !important;
+            padding-bottom: 8px !important;
+            border-bottom: 1.5px solid #cbd5e1 !important;
           }
-          body * {
-            background-color: #fff !important;
-            background: transparent !important;
-            color: #000 !important;
-            font-size: 10px !important;
-            font-weight: 400 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          .print-header-top {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
+            margin-bottom: 4px !important;
           }
-          table {
+          .print-header-title {
+            font-size: 18pt !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            text-transform: none !important;
+            line-height: 1.2 !important;
+            margin: 4px 0 !important;
+            white-space: nowrap !important;
+          }
+          .print-header-meta {
+            font-size: 9pt !important;
+            color: #475569 !important;
+            margin-top: 2px !important;
+          }
+          table, .ui-table {
             width: 100% !important;
             max-width: 100% !important;
             border-collapse: collapse !important;
-            font-size: 10px !important;
+            font-size: 9pt !important;
             table-layout: auto !important;
-            margin: 0 !important;
+            margin-top: 8px !important;
           }
-          th {
+          th, td {
             border: 1px solid #cbd5e1 !important;
-            padding: 4px 6px !important;
+            padding: 6px 8px !important;
             white-space: normal !important;
             word-break: break-word !important;
-            background-color: #f8fafc !important;
-            font-size: 10px !important;
+            font-size: 9pt !important;
+          }
+          th {
+            background-color: #f1f5f9 !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
             text-align: left !important;
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 4px 6px !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            font-size: 10px !important;
+            color: #1e293b !important;
             vertical-align: middle !important;
           }
           tr {
             page-break-inside: avoid !important;
-          }
-          h1, .print-title, .title {
-            font-size: 28px !important;
-            font-weight: 900 !important;
-            text-transform: uppercase !important;
-            line-height: 1.2 !important;
-            margin-bottom: 4px !important;
           }
           .print\\:hidden, th.print\\:hidden, td.print\\:hidden, [class*="print:hidden"] {
             display: none !important;

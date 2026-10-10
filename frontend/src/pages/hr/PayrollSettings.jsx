@@ -177,14 +177,14 @@ export default function PayrollSettings() {
         getTallyConfig(),
       ]);
       const rows = settingsRes?.data?.schedules || settingsRes?.data || [];
-      setSchedules(Array.isArray(rows) && rows.length ? rows : DEFAULT_SCHEDULES);
+      setSchedules(Array.isArray(rows) ? rows : []);
       setTallyForm(
         tallyRes?.data && typeof tallyRes.data === "object" && Object.keys(tallyRes.data).length
           ? { ...DEFAULT_TALLY, ...tallyRes.data }
           : DEFAULT_TALLY
       );
     } catch {
-      setSchedules(DEFAULT_SCHEDULES);
+      setSchedules([]);
       setTallyForm(DEFAULT_TALLY);
     } finally {
       setLoading(false);

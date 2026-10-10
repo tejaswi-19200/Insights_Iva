@@ -85,31 +85,13 @@ export function mergeSiteVisitEmployees(apiRows = [], { period = "daily", visits
   }
 
   if (!apiRows?.length) {
-    return DEMO_SITE_VISIT_EMPLOYEES.map((e) => ({
-      ...e,
-      initials: e.name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase(),
-      places_visited: liveCounts[e.id] ?? (
-        period === "weekly" || period === "monthly"
-          ? (e.id === 1 ? 2 : 0)
-          : e.places_visited
-      ),
-    }));
+    return [];
   }
 
-  const demoCounts = Object.fromEntries(
-    DEMO_SITE_VISIT_EMPLOYEES.map((e) => [e.id, e.places_visited])
-  );
-  const effectiveCounts = { ...demoCounts, ...liveCounts };
-
-  return apiRows.map((row, i) => mapApiEmployee(row, i, effectiveCounts));
+  return apiRows.map((row, i) => mapApiEmployee(row, i, liveCounts));
 }
 
-
 export function totalVisitsForPeriod(employees, period) {
-  if (period === "weekly" || period === "monthly") {
-    const fromDemo = employees.reduce((sum, e) => sum + (Number(e.places_visited) || 0), 0);
-    return fromDemo > 0 ? fromDemo : 5;
-  }
   return employees.reduce((sum, e) => sum + (Number(e.places_visited) || 0), 0);
 }
 

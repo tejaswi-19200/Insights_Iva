@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Building2, ChevronDown, FileText, Grid2x2, ImagePlus, MapPin, Package, PenLine, Plane, Plus, Ban, Search, Ship, TrainFront, Trash2, Truck, User, X } from "lucide-react";
+import { Building2, ChevronDown, FileText, Grid2x2, GripVertical, ImagePlus, MapPin, Package, PenLine, Plane, Plus, Ban, Search, Ship, TrainFront, Trash2, Truck, User, X } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import { SearchBar } from "../../components/common/SearchFilter";
@@ -267,6 +267,7 @@ export default function DeliveryChallanForm() {
     reverse_charge: false,
   });
   const [items, setItems] = useState([emptyItem(), emptyItem(), emptyItem()]);
+  const [dragRowIdx, setDragRowIdx] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -851,9 +852,9 @@ export default function DeliveryChallanForm() {
             <table className="w-full min-w-[1100px] border-collapse text-left text-[12px]">
               <thead className="ui-table-head">
                 <tr>
-                  {["#", "Item Name", "HSN", "Qty Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
-                    (h) => (
-                      <th key={h || "x"} className="whitespace-nowrap border-b border-r border-[#d0d0d8] px-2 py-2.5 font-semibold last:border-r-0">
+                  {["S.No", "Item Name", "HSN", "Qty Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
+                    (h, hi) => (
+                      <th key={`${h}-${hi}`} className="whitespace-nowrap border-b border-r border-[#d0d0d8] px-2 py-2.5 font-semibold last:border-r-0">
                         {h}
                       </th>
                     )
@@ -865,14 +866,51 @@ export default function DeliveryChallanForm() {
                   const t = lineTotals(row);
                   const hasDesc = Boolean(row.item_description?.trim());
                   return (
-                    <tr key={idx}>
-                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">{idx + 1}</td>
+                    <tr
+                      key={idx}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragRowIdx(idx);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", String(idx));
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = dragRowIdx !== null ? dragRowIdx : parseInt(e.dataTransfer.getData("text/plain"), 10);
+                        if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                        setItems((prev) => {
+                          const updated = [...prev];
+                          const [removed] = updated.splice(sourceIdx, 1);
+                          updated.splice(idx, 0, removed);
+                          return updated;
+                        });
+                        setDragRowIdx(null);
+                      }}
+                      onDragEnd={() => setDragRowIdx(null)}
+                      className={`transition-colors ${dragRowIdx === idx ? "opacity-40 bg-blue-50/50" : ""}`}
+                    >
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">
+                        <div className="flex items-center justify-center gap-1 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder row">
+                          <GripVertical className="h-3.5 w-3.5 text-[#a0a0ab] hover:text-blue-600 shrink-0" />
+                          <span>{idx + 1}</span>
+                        </div>
+                      </td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
                         <div className="relative min-w-[160px]">
                           <SearchBar
                             size="compact"
                             value={row.item_description}
                             onChange={(v) => updateItem(idx, "item_description", v)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }
+                            }}
                             placeholder="Select Item"
                             clearable={false}
                             className="w-full"

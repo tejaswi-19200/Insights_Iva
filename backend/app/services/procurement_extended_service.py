@@ -690,20 +690,32 @@ def update_vendor_bill(db: Session, tenant_id: int, bill_id: int, payload) -> Ve
 
 
 def delete_rfq(db: Session, tenant_id: int, rfq_id: int) -> bool:
+    from app.models.procurement import VendorQuotation
+
     rfq = db.scalars(select(RFQ).where(RFQ.id == rfq_id, RFQ.tenant_id == tenant_id)).first()
     if not rfq:
         return False
+
+    for vq in db.scalars(select(VendorQuotation).where(VendorQuotation.rfq_id == rfq_id)).all():
+        db.delete(vq)
+
     db.delete(rfq)
     db.commit()
     return True
 
 
 def delete_vendor_bill(db: Session, tenant_id: int, bill_id: int) -> bool:
+    from app.models.procurement import VendorBillItem
+
     bill = db.scalars(
         select(VendorBill).where(VendorBill.id == bill_id, VendorBill.tenant_id == tenant_id)
     ).first()
     if not bill:
         return False
+
+    for bi in db.scalars(select(VendorBillItem).where(VendorBillItem.vendor_bill_id == bill_id)).all():
+        db.delete(bi)
+
     db.delete(bill)
     db.commit()
     return True
@@ -714,10 +726,23 @@ def get_procurement_hub(db: Session, tenant_id: int) -> ProcurementHubRead:
     rfq_sum = get_rfq_summary(db, tenant_id)
     bill_sum = get_vendor_bill_summary(db, tenant_id)
     mr_sum = get_mr_summary(db, tenant_id)
-    vendors = int(db.scalar(select(func.count(Supplier.id)).where(Supplier.tenant_id == tenant_id, Supplier.status == "active")) or 0)
+    active_vendor_filter = or_(Supplier.is_deleted.is_(False), Supplier.is_deleted.is_(None))
+    vendors = int(
+        db.scalar(
+            select(func.count(Supplier.id)).where(
+                Supplier.tenant_id == tenant_id,
+                Supplier.status == "active",
+                active_vendor_filter,
+            )
+        )
+        or 0
+    )
     top = list(
         db.scalars(
-            select(Supplier).where(Supplier.tenant_id == tenant_id).order_by(Supplier.rating.desc()).limit(5)
+            select(Supplier)
+            .where(Supplier.tenant_id == tenant_id, active_vendor_filter)
+            .order_by(Supplier.rating.desc())
+            .limit(5)
         ).all()
     )
     pending_pos = list_po_enriched(db, tenant_id)[:5]

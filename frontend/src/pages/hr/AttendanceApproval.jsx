@@ -175,7 +175,7 @@ function StatusFilterSelect({ value, onChange }) {
 export default function AttendanceApproval() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
+  const [employees, setEmployees] = useState([]);
   const [records, setRecords] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [employeeFilter, setEmployeeFilter] = useState("all");
@@ -190,10 +190,9 @@ export default function AttendanceApproval() {
     try {
       const empRes = await getEmployeesEnriched();
       const empList = empRes?.data || [];
-      const currentEmps = empList.length ? empList : [DEMO_EMPLOYEE];
-      setEmployees(currentEmps);
+      setEmployees(empList);
 
-      const sampleRecords = currentEmps.slice(0, 5).map((emp, idx) => {
+      const sampleRecords = empList.slice(0, 5).map((emp, idx) => {
         const empName = emp.full_name || emp.name || "Employee";
         const empId = emp.employee_id || emp.employee_code || `EMP-${idx + 1}`;
         return {
@@ -216,10 +215,10 @@ export default function AttendanceApproval() {
         };
       });
 
-      setRecords(sampleRecords);
+      setRecords([]);
       setSelectedIds([]);
     } catch {
-      setEmployees([DEMO_EMPLOYEE]);
+      setEmployees([]);
       setRecords([]);
     } finally {
       setLoading(false);

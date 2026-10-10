@@ -36,7 +36,7 @@ export default function PreventiveMaintenance() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [summary, setSummary] = useState(DEMO_PREVENTIVE_SUMMARY);
+  const [summary, setSummary] = useState({ total: 0, pending: 0, completed: 0, overdue: 0 });
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

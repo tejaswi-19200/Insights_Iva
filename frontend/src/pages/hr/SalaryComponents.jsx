@@ -318,12 +318,12 @@ export default function SalaryComponents() {
       ]);
       const earnRows = earnRes?.data?.items || earnRes?.data;
       const dedRows = dedRes?.data?.items || dedRes?.data;
-      setEarnings(Array.isArray(earnRows) && earnRows.length ? earnRows : DEFAULT_EARNINGS);
-      setDeductions(Array.isArray(dedRows) && dedRows.length ? dedRows : DEFAULT_DEDUCTIONS);
+      setEarnings(Array.isArray(earnRows) ? earnRows : []);
+      setDeductions(Array.isArray(dedRows) ? dedRows : []);
       setOvertime(otRes?.data || DEFAULT_OVERTIME);
     } catch {
-      setEarnings(DEFAULT_EARNINGS);
-      setDeductions(DEFAULT_DEDUCTIONS);
+      setEarnings([]);
+      setDeductions([]);
       setOvertime(DEFAULT_OVERTIME);
     } finally {
       setLoading(false);

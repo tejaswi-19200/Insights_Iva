@@ -378,7 +378,7 @@ export default function WorkflowOrderActions({ orderId, onSuccess }) {
                   setAssignForm((f) => ({ ...f, machine_id: e.target.value }));
                 }}
               >
-                <option value="">Select Machine...</option>
+                <option value="">Select Machine</option>
                 {isAdmin ? (
                   <option value="__add_machine__">+ Add new Machine</option>
                 ) : null}

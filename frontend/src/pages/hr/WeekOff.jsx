@@ -280,10 +280,10 @@ export default function WeekOff() {
           schedule: normalizeSchedule(row.schedule),
         })));
       } else {
-        setRecords([DEMO_WEEK_OFF]);
+        setRecords([]);
       }
     } catch {
-      setRecords([DEMO_WEEK_OFF]);
+      setRecords([]);
     } finally {
       setLoading(false);
     }

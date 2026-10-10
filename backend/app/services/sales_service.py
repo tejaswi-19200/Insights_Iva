@@ -450,6 +450,16 @@ def delete_sales_order(db: Session, tenant_id: int, order_id: int) -> bool:
             else:
                 db.delete(po)
 
+        from app.models.task import Task
+
+        for t in db.scalars(
+            select(Task).where(
+                Task.tenant_id == tenant_id,
+                Task.module == "sales_order",
+            )
+        ).all():
+            db.delete(t)
+
         _purge_sales_order_audit_rows(db, tenant_id, order_id)
         db.delete(order)
         db.commit()
@@ -1355,7 +1365,8 @@ def update_lead(db: Session, tenant_id: int, lead_id: int, payload) -> Lead | No
 def delete_lead(db: Session, tenant_id: int, lead_id: int) -> bool:
     from fastapi import HTTPException
 
-    from app.models.sales import Quotation
+    from app.models.sales import LeadActivity, Quotation
+    from app.models.task import Task
 
     lead = db.scalars(
         select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
@@ -1373,6 +1384,30 @@ def delete_lead(db: Session, tenant_id: int, lead_id: int) -> bool:
             status_code=400,
             detail=f"Cannot delete lead: quotation {linked.quote_number} is linked.",
         )
+
+    # Clean up lead activities and linked tasks
+    activities = list(
+        db.scalars(
+            select(LeadActivity).where(
+                LeadActivity.lead_id == lead_id,
+                LeadActivity.tenant_id == tenant_id,
+            )
+        ).all()
+    )
+    for act in activities:
+        db.delete(act)
+
+    tasks = list(
+        db.scalars(
+            select(Task).where(
+                Task.tenant_id == tenant_id,
+                Task.module == "lead",
+            )
+        ).all()
+    )
+    for t in tasks:
+        db.delete(t)
+
     db.delete(lead)
     db.commit()
     return True
@@ -1614,9 +1649,23 @@ def update_quotation(
 
 def delete_quotation(db: Session, tenant_id: int, quote_id: int) -> bool:
     """Hard-delete quotation from database."""
+    from app.models.task import Task
+
     quote = get_quotation(db, tenant_id, quote_id)
     if not quote:
         return False
+
+    tasks = list(
+        db.scalars(
+            select(Task).where(
+                Task.tenant_id == tenant_id,
+                Task.module == "quotation",
+            )
+        ).all()
+    )
+    for t in tasks:
+        db.delete(t)
+
     db.delete(quote)
     db.commit()
     return True

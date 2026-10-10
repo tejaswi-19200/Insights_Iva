@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, Cpu, X } from "lucide-react";
+import { CalendarDays, Cpu, User as UserIcon, X } from "lucide-react";
 
 import { SHIFTS } from "../../data/productionPlanningMasterData";
-import { getMachines, quickCreateWorkOrder } from "../../api/productionApi";
+import { getMachines, getOperators, quickCreateWorkOrder } from "../../api/productionApi";
 import { fetchFinishedGoodsWithFallback } from "../../utils/productOptions";
 import { fetchCustomersWithFallback } from "../../utils/customerOptions";
 import { apiErrorMessage } from "../../utils/apiError";
 import AddNewItemModal from "../sales/AddNewItemModal";
 import AddNewPartyModal from "../sales/AddNewPartyModal";
 import CreateMachineModal from "./CreateMachineModal";
+import AddUserModal from "../admin/AddUserModal";
 import Button from "../common/Button";
 import ShorthandQuantityInput from "../common/ShorthandQuantityInput";
 
@@ -60,11 +61,14 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
   const [machines, setMachines] = useState([]);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [operators, setOperators] = useState([]);
   const [customCustomerMode, setCustomCustomerMode] = useState(false);
   const [customProductMode, setCustomProductMode] = useState(false);
+  const [customOperatorMode, setCustomOperatorMode] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddMachineModal, setShowAddMachineModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [customMachineMode, setCustomMachineMode] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,14 +98,17 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
       getMachines().catch(() => ({ data: [] })),
       fetchFinishedGoodsWithFallback().catch(() => []),
       fetchCustomersWithFallback().catch(() => []),
+      getOperators().catch(() => ({ data: [] })),
     ])
-      .then(([mRes, pRes, cRes]) => {
+      .then(([mRes, pRes, cRes, opRes]) => {
         if (cancelled) return;
         setMachines(Array.isArray(mRes?.data) ? mRes.data : []);
         const prods = Array.isArray(pRes) ? pRes : [];
         setProducts(prods);
         const custs = Array.isArray(cRes) ? cRes : [];
         setCustomers(custs);
+        const ops = Array.isArray(opRes?.data) ? opRes.data : Array.isArray(opRes) ? opRes : [];
+        setOperators(ops);
 
         if (order?.product_id) {
           const selected = prods.find((p) => String(p.id) === String(order.product_id));
@@ -312,7 +319,7 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
                   disabled={loadingOptions}
                   className="ui-select"
                 >
-                  <option value="">{loadingOptions ? "Loading products…" : "Select product…"}</option>
+                  <option value="">{loadingOptions ? "Loading products" : "Select Product"}</option>
                   <option
                     value="__add_product__"
                     className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
@@ -346,7 +353,7 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
                     name="machine_name"
                     value={form.machine_name || ""}
                     onChange={handleChange}
-                    placeholder="Enter machine name…"
+                    placeholder="Enter machine name"
                     className="ui-input flex-1"
                     autoFocus
                   />
@@ -363,7 +370,7 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
                 </div>
               ) : (
                 <select name="machine_id" value={form.machine_id} onChange={handleMachineChange} className="ui-select">
-                  <option value="">Select Machine…</option>
+                  <option value="">Select Machine</option>
                   <option
                     value="__add_machine__"
                     className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
@@ -391,7 +398,7 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
                     name="customer_name"
                     value={form.customer_name}
                     onChange={handleChange}
-                    placeholder="Enter customer name…"
+                    placeholder="Enter customer name"
                     className="ui-input flex-1"
                     autoFocus
                   />
@@ -414,7 +421,7 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
                   disabled={loadingOptions}
                   className="ui-select"
                 >
-                  <option value="">{loadingOptions ? "Loading customers…" : "Select customer…"}</option>
+                  <option value="">{loadingOptions ? "Loading customers" : "Select Customer"}</option>
                   <option
                     value="__add_customer__"
                     className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
@@ -432,7 +439,74 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
             </label>
             <label className="block space-y-1">
               <span className="ui-label">Operator</span>
-              <input name="operator_name" value={form.operator_name} onChange={handleChange} className="ui-input" />
+              {customOperatorMode ? (
+                <div className="flex gap-1.5">
+                  <input
+                    name="operator_name"
+                    value={form.operator_name || ""}
+                    onChange={handleChange}
+                    placeholder="Enter operator name"
+                    className="ui-input flex-1"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomOperatorMode(false);
+                      setForm((prev) => ({ ...prev, operator_name: "" }));
+                    }}
+                    className="rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-surface-muted)]"
+                  >
+                    Select
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <UserIcon className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[var(--color-text-icon)]" />
+                  <select
+                    name="operator_name"
+                    value={form.operator_name || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "__custom__") {
+                        setCustomOperatorMode(true);
+                      } else if (val === "__add_operator__" || val === "__add_user__") {
+                        setShowAddUserModal(true);
+                      } else {
+                        setForm((prev) => ({ ...prev, operator_name: val }));
+                      }
+                    }}
+                    disabled={loadingOptions}
+                    className="ui-select pl-10 w-full"
+                  >
+                    <option value="">Select Operator</option>
+                    <option
+                      value="__add_operator__"
+                      className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
+                      style={{ color: "#036f71", fontWeight: "600" }}
+                    >
+                      + Add new User
+                    </option>
+                    {form.operator_name &&
+                      !operators.some(
+                        (op) => (op.full_name || op.name || op.email) === form.operator_name
+                      ) && (
+                        <option value={form.operator_name}>
+                          {form.operator_name}
+                        </option>
+                      )}
+                    {operators.map((op) => {
+                      const opName = op.full_name || op.name || op.email || `User #${op.id}`;
+                      const empId = op.employee_id || op.id;
+                      return (
+                        <option key={op.id} value={opName}>
+                          {opName}{empId ? ` (${empId})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
             </label>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -534,6 +608,31 @@ export default function QuickWorkOrderModal({ order, onClose, onSuccess, addToas
                 customer_id: newId,
                 customer_name: createdCust?.name || createdCust?.company || prev.customer_name,
               }));
+            }
+          } catch {
+            // fallback
+          }
+        }}
+      />
+      <AddUserModal
+        open={showAddUserModal}
+        onClose={() => setShowAddUserModal(false)}
+        defaultRole="Operator"
+        title="New User"
+        onSuccess={async (createdUser) => {
+          setShowAddUserModal(false);
+          try {
+            const opRes = await getOperators().catch(() => ({ data: [] }));
+            const refreshed = Array.isArray(opRes?.data)
+              ? opRes.data
+              : Array.isArray(opRes)
+                ? opRes
+                : [];
+            const list = refreshed.length > 0 ? refreshed : (createdUser ? [createdUser] : []);
+            setOperators(list);
+            if (createdUser?.full_name || createdUser?.name) {
+              const opName = createdUser.full_name || createdUser.name;
+              setForm((prev) => ({ ...prev, operator_name: opName }));
             }
           } catch {
             // fallback

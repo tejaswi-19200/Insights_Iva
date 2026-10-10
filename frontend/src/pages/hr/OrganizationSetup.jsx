@@ -1441,12 +1441,12 @@ function SimpleSetupTab({
 export default function OrganizationSetup() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("leave-types");
-  const [leaveTypes, setLeaveTypes] = useState(DEFAULT_LEAVE_TYPES);
-  const [designations, setDesignations] = useState(DEFAULT_DESIGNATIONS);
-  const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
-  const [employmentTypes, setEmploymentTypes] = useState(DEFAULT_EMPLOYMENT_TYPES);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [employmentTypes, setEmploymentTypes] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
-  const [branches, setBranches] = useState(DEFAULT_BRANCHES);
+  const [branches, setBranches] = useState([]);
   const [geoFencing, setGeoFencing] = useState([]);
 
   const load = useCallback(async (isRefresh = false) => {
@@ -1476,20 +1476,20 @@ export default function OrganizationSetup() {
       const expRows = expRes?.data?.items || expRes?.data || [];
       const branchRows = branchRes?.data?.items || branchRes?.data || [];
       const geoRows = geoRes?.data?.items || geoRes?.data || [];
-      setLeaveTypes(withDefaults(Array.isArray(leaveRows) ? leaveRows : [], DEFAULT_LEAVE_TYPES));
-      setDesignations(withDefaults(Array.isArray(desRows) ? desRows : [], DEFAULT_DESIGNATIONS));
-      setDepartments(withDefaults(Array.isArray(deptRows) ? deptRows : [], DEFAULT_DEPARTMENTS));
-      setEmploymentTypes(withDefaults(Array.isArray(empRows) ? empRows : [], DEFAULT_EMPLOYMENT_TYPES));
+      setLeaveTypes(Array.isArray(leaveRows) ? leaveRows : []);
+      setDesignations(Array.isArray(desRows) ? desRows : []);
+      setDepartments(Array.isArray(deptRows) ? deptRows : []);
+      setEmploymentTypes(Array.isArray(empRows) ? empRows : []);
       setExpenseCategories(Array.isArray(expRows) ? expRows : []);
-      setBranches(withDefaults(Array.isArray(branchRows) ? branchRows : [], DEFAULT_BRANCHES));
+      setBranches(Array.isArray(branchRows) ? branchRows : []);
       setGeoFencing(Array.isArray(geoRows) ? geoRows : []);
     } catch {
-      setLeaveTypes(DEFAULT_LEAVE_TYPES);
-      setDesignations(DEFAULT_DESIGNATIONS);
-      setDepartments(DEFAULT_DEPARTMENTS);
-      setEmploymentTypes(DEFAULT_EMPLOYMENT_TYPES);
+      setLeaveTypes([]);
+      setDesignations([]);
+      setDepartments([]);
+      setEmploymentTypes([]);
       setExpenseCategories([]);
-      setBranches(DEFAULT_BRANCHES);
+      setBranches([]);
       setGeoFencing([]);
     } finally {
       setLoading(false);

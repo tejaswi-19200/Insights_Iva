@@ -383,7 +383,7 @@ export default function CreateProductionOrderModal({
                   disabled={loadingOptions}
                   className={`ui-select w-full ${errors.product_id ? "border-[var(--color-danger)]" : ""}`}
                 >
-                  <option value="">{loadingOptions ? "Loading products…" : "Select product…"}</option>
+                  <option value="">{loadingOptions ? "Loading products" : "Select Product"}</option>
                   <option
                     value="__add_product__"
                     className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
@@ -413,16 +413,14 @@ export default function CreateProductionOrderModal({
             </label>
 
             <label className="block space-y-1.5">
-              <span className="ui-label">
-                Machine <span className="font-normal text-[var(--color-text-faint)]">(optional)</span>
-              </span>
+              <span className="ui-label">Machine</span>
               {customMachineMode ? (
                 <div className="flex gap-1.5">
                   <input
                     type="text"
                     value={form.machine_name || ""}
                     onChange={(e) => handleChange("machine_name", e.target.value)}
-                    placeholder="Enter machine name…"
+                    placeholder="Enter machine name"
                     autoFocus
                     className="ui-input flex-1"
                   />
@@ -461,7 +459,7 @@ export default function CreateProductionOrderModal({
                     disabled={loadingOptions}
                     className="ui-select pl-10 w-full"
                   >
-                    <option value="">Select machine (optional)</option>
+                    <option value="">Select Machine</option>
                     <option
                       value="__add_machine__"
                       className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
@@ -485,25 +483,14 @@ export default function CreateProductionOrderModal({
             </label>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="ui-label">
-                  Operator Name <span className="font-normal text-[var(--color-text-faint)]">(optional)</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddUserModal(true)}
-                  className="text-xs font-semibold text-[var(--color-primary)] hover:underline flex items-center gap-1"
-                >
-                  + Add User
-                </button>
-              </div>
+              <span className="ui-label">Operator</span>
               {customOperatorMode ? (
                 <div className="flex gap-1.5">
                   <input
                     type="text"
                     value={form.operator_name || ""}
                     onChange={(e) => handleChange("operator_name", e.target.value)}
-                    placeholder="Enter operator name…"
+                    placeholder="Enter operator name"
                     autoFocus
                     className="ui-input flex-1"
                   />
@@ -552,7 +539,7 @@ export default function CreateProductionOrderModal({
                     disabled={loadingOptions}
                     className="ui-select pl-10 w-full"
                   >
-                    <option value="">Select operator (optional)</option>
+                    <option value="">Select Operator</option>
                     <option
                       value="__add_operator__"
                       className="add-new-option text-[#036f71] font-semibold bg-[#e6f4f4] dark:text-[#2dd4bf] dark:bg-[#0d3d38]"
@@ -584,9 +571,7 @@ export default function CreateProductionOrderModal({
             </div>
 
             <label className="block space-y-1.5">
-              <span className="ui-label">
-                Operator ID <span className="font-normal text-[var(--color-text-faint)]">(optional)</span>
-              </span>
+              <span className="ui-label">Operator ID</span>
               <input
                 type="text"
                 value={form.operator_id}

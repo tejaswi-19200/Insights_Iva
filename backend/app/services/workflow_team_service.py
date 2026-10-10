@@ -1953,13 +1953,15 @@ def list_operator_assigned_jobs(
     status_filter: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    """Work orders assigned to the current operator (or all assigned WOs for admin)."""
+    """Work orders assigned to the current operator (or all assigned WOs for admin/managers)."""
     from app.models.machine import Machine
     from app.services.stage_job_card_service import get_stage_card
     from sqlalchemy.orm import selectinload
 
-    if not user_is_admin(user):
-        _assert_team(user, TEAM_OPERATOR)
+    teams = user_teams(get_role_names(user))
+    role_names = [r.lower() for r in get_role_names(user)]
+    is_admin_or_mgr = user_is_admin(user) or any("manager" in r or "admin" in r or "supervisor" in r for r in role_names)
+    is_pure_operator = (TEAM_OPERATOR in teams) and not is_admin_or_mgr
 
     allowed_statuses = {"PRODUCTION_ASSIGNED", "PRODUCTION_IN_PROGRESS"}
     if status_filter:
@@ -1971,33 +1973,37 @@ def list_operator_assigned_jobs(
     stmt = (
         select(WorkOrder, SalesOrder, ProductionOrder)
         .join(ProductionOrder, WorkOrder.production_order_id == ProductionOrder.id)
-        .join(SalesOrder, ProductionOrder.sales_order_id == SalesOrder.id)
+        .outerjoin(SalesOrder, ProductionOrder.sales_order_id == SalesOrder.id)
         .options(selectinload(SalesOrder.customer), selectinload(SalesOrder.line_items))
         .where(
             WorkOrder.tenant_id == tenant_id,
-            SalesOrder.workflow_status.in_(list(allowed_statuses)),
             WorkOrder.assigned_user_id.isnot(None),
         )
-        .order_by(SalesOrder.id.desc())
+        .order_by(WorkOrder.id.desc())
         .limit(limit)
     )
-    if not user_is_admin(user):
+
+    if is_pure_operator:
         stmt = stmt.where(WorkOrder.assigned_user_id == user.id)
 
     rows = db.execute(stmt).all()
     items: list[dict[str, Any]] = []
-    for wo, so, _po in rows:
+    for wo, so, po in rows:
         product_name = None
-        qty = float(wo.planned_quantity or 0)
-        if so.line_items:
+        qty = float(wo.planned_quantity or (po.planned_quantity if po else 0))
+        if so and so.line_items:
             ln = so.line_items[0]
             qty = float(ln.quantity or qty)
             product_name = ln.item_description
             if ln.product_id:
                 p = db.get(Product, ln.product_id)
                 product_name = p.name if p else product_name
+        elif po and po.product_id:
+            p = db.get(Product, po.product_id)
+            if p:
+                product_name = p.name
 
-        op_card = get_stage_card(db, tenant_id, so.id, "operator")
+        op_card = get_stage_card(db, tenant_id, so.id, "operator") if so else None
         machine_name = None
         if wo.machine_id:
             machine = db.get(Machine, wo.machine_id)
@@ -2007,23 +2013,28 @@ def list_operator_assigned_jobs(
         target = float(wo.planned_quantity or qty or 0)
         progress_pct = min(100, round((produced / target) * 100)) if target > 0 else 0
 
-        operator_name = None
+        operator_name = wo.operator_name
         if wo.assigned_user_id:
             op_user = db.get(User, wo.assigned_user_id)
-            operator_name = op_user.full_name if op_user else None
+            if op_user:
+                operator_name = op_user.full_name
+
+        wf_status = (so.workflow_status if so and so.workflow_status else None) or ("PRODUCTION_IN_PROGRESS" if wo.status == "in_progress" else "PRODUCTION_ASSIGNED")
+        if status_filter and wf_status.upper() not in allowed_statuses:
+            continue
 
         items.append(
             {
-                "sales_order_id": so.id,
-                "order_number": so.order_number,
-                "customer_name": so.customer.name if so.customer else None,
-                "product_name": product_name,
+                "sales_order_id": so.id if so else (po.sales_order_id if po else None),
+                "order_number": so.order_number if so else (po.sales_order_number or po.order_number if po else wo.work_order_number),
+                "customer_name": (so.customer.name if so and so.customer else None) or (po.customer_name if po else None),
+                "product_name": product_name or "Standard Item",
                 "quantity": qty,
                 "target_quantity": target,
                 "produced_quantity": produced,
                 "progress_pct": progress_pct,
-                "priority": normalize_priority(so.priority),
-                "workflow_status": so.workflow_status,
+                "priority": normalize_priority(so.priority if so else (po.priority if po else "medium")),
+                "workflow_status": wf_status,
                 "work_order_id": wo.id,
                 "work_order_number": wo.work_order_number,
                 "work_order_status": wo.status,
@@ -2032,7 +2043,7 @@ def list_operator_assigned_jobs(
                 "assigned_operator": operator_name,
                 "assigned_operator_id": wo.assigned_user_id,
                 "machine_name": machine_name,
-                "delivery_date": so.delivery_date.isoformat() if so.delivery_date else None,
+                "delivery_date": (so.delivery_date.isoformat() if so and so.delivery_date else None) or (po.due_date.isoformat() if po and po.due_date else None),
                 "planned_end": wo.planned_end.isoformat() if wo.planned_end else None,
             }
         )
@@ -2050,7 +2061,9 @@ def _get_operator_work_order(
     ).first()
     if not wo:
         raise HTTPException(status_code=404, detail="Work order not found")
-    if wo.assigned_user_id != user.id and not user_is_admin(user):
+    role_names = [r.lower() for r in get_role_names(user)]
+    is_admin_or_mgr = user_is_admin(user) or any("manager" in r or "admin" in r or "supervisor" in r for r in role_names)
+    if wo.assigned_user_id != user.id and not is_admin_or_mgr:
         raise HTTPException(status_code=403, detail="Work order not assigned to you")
     return wo
 

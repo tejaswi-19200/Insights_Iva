@@ -1,11 +1,26 @@
-const LEAVE_STORAGE_KEY = "iva_local_leave_records";
+function getTenantKey() {
+  try {
+    const raw = localStorage.getItem("smrt-user");
+    if (raw) {
+      const u = JSON.parse(raw);
+      const key = u.company_id || u.tenant_id || u.company_code || u.tenant || u.email;
+      if (key) return String(key);
+    }
+  } catch {}
+  return "default";
+}
+
+function getStorageKey() {
+  const tenantKey = getTenantKey();
+  return `iva_local_leave_records_${tenantKey}`;
+}
 
 /**
  * Get all stored leave records from localStorage.
  */
 export function getLocalLeaves() {
   try {
-    const raw = localStorage.getItem(LEAVE_STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -25,7 +40,7 @@ export function saveLocalLeave(record) {
       id: record.id || localId,
     };
     const updated = [cleanRecord, ...list.filter((r) => r.id !== cleanRecord.id && r._localId !== cleanRecord._localId)];
-    localStorage.setItem(LEAVE_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(getStorageKey(), JSON.stringify(updated));
     window.dispatchEvent(new Event("leave-updated"));
     return cleanRecord;
   } catch {
@@ -54,7 +69,6 @@ export function updateLocalLeaveStatus(id, newStatus, updatedBy = "Admin") {
     });
 
     if (!found) {
-      // Record was from server or sample list; save override
       updated.unshift({
         id,
         _localId: id,
@@ -64,7 +78,7 @@ export function updateLocalLeaveStatus(id, newStatus, updatedBy = "Admin") {
       });
     }
 
-    localStorage.setItem(LEAVE_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(getStorageKey(), JSON.stringify(updated));
     window.dispatchEvent(new Event("leave-updated"));
   } catch {
     // ignore
@@ -101,10 +115,11 @@ export function mergeLeavesWithLocal(serverRecords = []) {
         status: loc.status || result[idx].status,
         updated_by: loc.updated_by || result[idx].updated_by,
       };
-    } else {
+    } else if (loc._localId || String(loc.id || "").startsWith("local_")) {
       result.unshift(loc);
     }
   }
 
   return result;
 }
+

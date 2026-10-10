@@ -413,16 +413,16 @@ export default function AttendanceSettings() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("configure");
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
+  const [employees, setEmployees] = useState([]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
       const empRes = await getEmployeesEnriched();
       const empList = empRes?.data || [];
-      setEmployees(empList.length ? empList : [DEMO_EMPLOYEE]);
+      setEmployees(empList);
     } catch {
-      setEmployees([DEMO_EMPLOYEE]);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }

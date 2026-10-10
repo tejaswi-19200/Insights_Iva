@@ -121,7 +121,7 @@ def _next_vendor_code(db: Session, tenant_id: int) -> str:
         if digits:
             max_n = max(max_n, int(digits))
     count = db.scalar(
-        select(func.count(Supplier.id)).where(Supplier.tenant_id == tenant_id)
+        select(func.count(Supplier.id)).where(Supplier.tenant_id == tenant_id, _active_filter())
     ) or 0
     return f"VEN-{max(max_n, count) + 1:04d}"
 

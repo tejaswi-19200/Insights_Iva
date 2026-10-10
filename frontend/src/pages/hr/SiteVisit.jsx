@@ -606,8 +606,8 @@ export default function SiteVisit() {
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [search, setSearch] = useState("");
-  const [employees, setEmployees] = useState(DEMO_SITE_VISIT_EMPLOYEES);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(DEMO_SITE_VISIT_EMPLOYEES[0]?.id ?? null);
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [visits, setVisits] = useState([]);
 
   const [modalOpen, setModalOpen] = useState(false);

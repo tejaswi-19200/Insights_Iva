@@ -24,57 +24,9 @@ import "./leaveApprovals.css";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const DEMO_EMPLOYEES = [
-  { id: "1", employee_id: "EMP-001", full_name: "Satish Gogulothu", name: "Satish Gogulothu" },
-  { id: "2", employee_id: "EMP-002", full_name: "Rajesh Kumar", name: "Rajesh Kumar" },
-  { id: "3", employee_id: "EMP-003", full_name: "Priya Sharma", name: "Priya Sharma" },
-  { id: "4", employee_id: "EMP-004", full_name: "Amit Patel", name: "Amit Patel" },
-];
+const DEMO_EMPLOYEES = [];
+const SAMPLE_LEAVE_RECORDS = [];
 
-const SAMPLE_LEAVE_RECORDS = [
-  {
-    id: "sample-1",
-    employee_id: "EMP-002",
-    employee_name: "Rajesh Kumar",
-    leave_type: "casual",
-    start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 10).toISOString().slice(0, 10),
-    end_date: new Date(new Date().getFullYear(), new Date().getMonth(), 12).toISOString().slice(0, 10),
-    days: 3,
-    reason: "Family function",
-    attachment: false,
-    created_by: "Rajesh Kumar",
-    updated_by: "—",
-    status: "pending",
-  },
-  {
-    id: "sample-2",
-    employee_id: "EMP-003",
-    employee_name: "Priya Sharma",
-    leave_type: "sick",
-    start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 15).toISOString().slice(0, 10),
-    end_date: new Date(new Date().getFullYear(), new Date().getMonth(), 16).toISOString().slice(0, 10),
-    days: 2,
-    reason: "Medical checkup and rest",
-    attachment: true,
-    created_by: "Priya Sharma",
-    updated_by: "—",
-    status: "pending",
-  },
-  {
-    id: "sample-3",
-    employee_id: "EMP-004",
-    employee_name: "Amit Patel",
-    leave_type: "earned",
-    start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 3).toISOString().slice(0, 10),
-    end_date: new Date(new Date().getFullYear(), new Date().getMonth(), 5).toISOString().slice(0, 10),
-    days: 3,
-    reason: "Vacation travel",
-    attachment: false,
-    created_by: "Amit Patel",
-    updated_by: "Satish Gogulothu",
-    status: "approved",
-  },
-];
 
 const LEAVE_TYPE_FILTER_OPTIONS = [
   { value: "", label: "Leave Type" },
@@ -517,13 +469,12 @@ export default function LeaveApprovals() {
     try {
       const [empRes, leaveRes] = await Promise.allSettled([getEmployeesEnriched(), getLeaveEnriched()]);
       const empList = empRes.status === "fulfilled" ? empRes.value?.data || [] : [];
-      setEmployees(empList.length ? empList : DEMO_EMPLOYEES);
+      setEmployees(empList);
       const leaveData = leaveRes.status === "fulfilled" ? leaveRes.value?.data || [] : [];
-      const baseRecords = leaveData.length ? leaveData : SAMPLE_LEAVE_RECORDS;
-      setRecords(mergeLeavesWithLocal(baseRecords));
+      setRecords(mergeLeavesWithLocal(leaveData));
     } catch {
-      setEmployees(DEMO_EMPLOYEES);
-      setRecords(mergeLeavesWithLocal(SAMPLE_LEAVE_RECORDS));
+      setEmployees([]);
+      setRecords(mergeLeavesWithLocal([]));
     } finally {
       setLoading(false);
     }

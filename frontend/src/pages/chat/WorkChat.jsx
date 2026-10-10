@@ -30,6 +30,7 @@ import {
   Search,
   Send,
   Smile,
+  Sparkles,
   Star,
   Trash2,
   Users,
@@ -1002,12 +1003,21 @@ export default function WorkChat() {
   );
 
   const sortedConversations = useMemo(() => {
-    return [...conversations].sort((a, b) => {
+    const q = convSearch.trim().toLowerCase();
+    let list = [...conversations];
+    if (q) {
+      list = list.filter((c) => {
+        const name = (c.name || c.title || c.other_user_name || c.username || "").toLowerCase();
+        const lastMsg = (c.last_message || c.last_message_text || "").toLowerCase();
+        return name.includes(q) || lastMsg.includes(q);
+      });
+    }
+    return list.sort((a, b) => {
       const aFav = favConvs.has(a.id) ? 1 : 0;
       const bFav = favConvs.has(b.id) ? 1 : 0;
       return bFav - aFav;
     });
-  }, [conversations, favConvs]);
+  }, [conversations, convSearch, favConvs]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -1551,26 +1561,27 @@ export default function WorkChat() {
 
   const runConfirmedChatAction = async () => {
     if (!confirmAction?.conversationId) return;
+    const action = confirmAction;
+    const cid = action.conversationId;
+    setConfirmAction(null);
     setConfirmBusy(true);
-    const cid = confirmAction.conversationId;
     try {
-      if (confirmAction.type === "clear") {
-        await clearConversation(cid);
+      if (action.type === "clear") {
         setMessages([]);
-        await loadConversations();
-        if (activeId === cid) {
-          await loadMessages(cid);
-        }
+        await clearConversation(cid);
         addToast("Chat cleared for you.", "success");
+        loadConversations();
+        if (activeId === cid) {
+          loadMessages(cid);
+        }
       } else {
         await leaveConversation(cid);
         setConversations((prev) => prev.filter((c) => c.id !== cid));
         setActiveId(null);
         setMessages([]);
         setMobileView("list");
-        addToast(confirmAction.title === "Exit group" ? "You left the group." : "Chat removed.", "success");
+        addToast(action.title === "Exit group" ? "You left the group." : "Chat removed.", "success");
       }
-      setConfirmAction(null);
     } catch (err) {
       addToast(apiErrorMessage(err, "Could not complete this action."), "error");
     } finally {
@@ -1691,30 +1702,27 @@ export default function WorkChat() {
           }`}
           aria-label="Conversations"
         >
-          <div className="work-chat-panel__search flex gap-2 items-center">
+          <div className="work-chat-panel__search flex items-center">
             <SearchBar
               value={convSearch}
-              onChange={setConvSearch}
+              onChange={(val) => {
+                setConvSearch(val);
+                setAppliedConvSearch(val.trim());
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   setAppliedConvSearch(convSearch.trim());
                 }
               }}
-              onClear={() => setAppliedConvSearch("")}
+              onClear={() => {
+                setConvSearch("");
+                setAppliedConvSearch("");
+              }}
               placeholder="Search conversations..."
               aria-label="Search conversations"
-              className="flex-1"
+              className="w-full"
             />
-            <button
-              type="button"
-              className="work-chat-header-btn shrink-0"
-              aria-label="Search conversations"
-              title="Search"
-              onClick={() => setAppliedConvSearch(convSearch.trim())}
-            >
-              <Search className="h-5 w-5" />
-            </button>
           </div>
           {loading ? (
             <div className="p-6"><Loader /></div>
@@ -2153,21 +2161,6 @@ export default function WorkChat() {
                                             type="button"
                                             className="work-chat-msg-dropdown-item"
                                             onClick={() => {
-                                              if (m.body) {
-                                                navigator.clipboard.writeText(m.body);
-                                                addToast("Message copied to clipboard.", "success");
-                                              }
-                                              setActiveMsgMenuId(null);
-                                            }}
-                                          >
-                                            <Copy className="h-4 w-4 text-slate-500" />
-                                            <span>Copy</span>
-                                          </button>
-
-                                          <button
-                                            type="button"
-                                            className="work-chat-msg-dropdown-item"
-                                            onClick={() => {
                                               setActiveEmojiPickerId(m.id);
                                               setActiveMsgMenuId(null);
                                             }}
@@ -2175,6 +2168,22 @@ export default function WorkChat() {
                                             <Smile className="h-4 w-4 text-amber-500" />
                                             <span>React</span>
                                           </button>
+
+                                          {m.attachments?.length > 0 ? (
+                                            <button
+                                              type="button"
+                                              className="work-chat-msg-dropdown-item"
+                                              onClick={() => {
+                                                m.attachments.forEach((att) => {
+                                                  handleDownloadFile(att.file_id || att.id, att.filename, att.download_url);
+                                                });
+                                                setActiveMsgMenuId(null);
+                                              }}
+                                            >
+                                              <Download className="h-4 w-4 text-emerald-600" />
+                                              <span>Download</span>
+                                            </button>
+                                          ) : null}
 
                                           <button
                                             type="button"
@@ -2214,6 +2223,23 @@ export default function WorkChat() {
                                             type="button"
                                             className="work-chat-msg-dropdown-item"
                                             onClick={() => {
+                                              window.dispatchEvent(
+                                                new CustomEvent("open-ai-assistant", {
+                                                  detail: { prompt: m.body || "Analyze message attachment" },
+                                                })
+                                              );
+                                              addToast("Opening AI Assistant...", "info");
+                                              setActiveMsgMenuId(null);
+                                            }}
+                                          >
+                                            <Sparkles className="h-4 w-4 text-purple-600" />
+                                            <span>Ask AI</span>
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            className="work-chat-msg-dropdown-item"
+                                            onClick={() => {
                                               setStarredMsgIds((prev) => {
                                                 const next = new Set(prev);
                                                 if (next.has(m.id)) {
@@ -2231,6 +2257,21 @@ export default function WorkChat() {
                                             <Star className={`h-4 w-4 ${starredMsgIds.has(m.id) ? "text-amber-500 fill-amber-500" : "text-slate-500"}`} />
                                             <span>{starredMsgIds.has(m.id) ? "Unstar" : "Star"}</span>
                                           </button>
+
+                                          {m.body ? (
+                                            <button
+                                              type="button"
+                                              className="work-chat-msg-dropdown-item"
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(m.body);
+                                                addToast("Message copied to clipboard.", "success");
+                                                setActiveMsgMenuId(null);
+                                              }}
+                                            >
+                                              <Copy className="h-4 w-4 text-slate-500" />
+                                              <span>Copy text</span>
+                                            </button>
+                                          ) : null}
 
                                           {own || user?.is_admin ? (
                                             <>
@@ -2604,9 +2645,9 @@ export default function WorkChat() {
             : "Are you sure?")
         }
         confirmLabel={confirmAction?.type === "clear" ? "Clear chat" : "Confirm"}
-        danger={confirmAction?.type !== "clear"}
-        busy={confirmBusy}
-        onCancel={() => setConfirmAction(null)}
+        destructive={confirmAction?.type === "clear"}
+        loading={confirmBusy}
+        onClose={() => setConfirmAction(null)}
         onConfirm={runConfirmedChatAction}
       />
     </ListPageShell>

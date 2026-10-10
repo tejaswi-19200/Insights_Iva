@@ -115,8 +115,8 @@ function statusTone(row) {
 function PriorityPill({ priority }) {
   const p = priorityBadge(priority || "medium");
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${p.bg} ${p.text}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden />
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${p.bg} ${p.text} print:border print:border-slate-300 print:bg-slate-100 print:text-slate-900`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80 print:hidden" aria-hidden />
       {p.label}
     </span>
   );
@@ -1091,10 +1091,10 @@ export default function ProductionPlanning() {
     {
       key: "_sno",
       label: "S.No.",
-      width: "3rem",
-      minWidth: "3rem",
-      className: "w-12 min-w-[3rem] text-center",
-      cellClassName: "text-center",
+      width: "3.5rem",
+      minWidth: "3.5rem",
+      className: "w-14 min-w-[3.5rem] text-center whitespace-nowrap",
+      cellClassName: "text-center tabular-nums whitespace-nowrap",
       render: (_r, _col, i, serialOffset) => {
         const rowIdx = typeof i === "number" && Number.isFinite(i) ? i : 0;
         const offset =
@@ -1102,7 +1102,7 @@ export default function ProductionPlanning() {
             ? serialOffset
             : Math.max(0, (page - 1) * pageSize);
         return (
-          <span className="tabular-nums font-medium text-[var(--color-text-muted)]">
+          <span className="tabular-nums font-medium text-[var(--color-text-muted)] print:text-black">
             {offset + rowIdx + 1}
           </span>
         );
@@ -1113,23 +1113,30 @@ export default function ProductionPlanning() {
       key: "order_number",
       label: "Order",
       render: (r) => (
-        <button
-          type="button"
+        <span
+          role="link"
+          tabIndex={0}
           onClick={() => openOrder(r)}
-          className="font-medium text-[var(--color-primary)] hover:underline focus:outline-none"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openOrder(r);
+            }
+          }}
+          className="font-medium text-[var(--color-primary)] hover:underline cursor-pointer focus:outline-none print:text-black print:no-underline print:font-semibold"
         >
-          {r.order_number}
-        </button>
+          {r.order_number || r.order_code || r.code || (r.id ? `PO-${r.id}` : "—")}
+        </span>
       ),
     },
     {
       key: "product_name",
       label: "Product",
       render: (r) => (
-        <div className="max-w-[200px] truncate" title={r.product_name}>
-          <span className="font-medium text-[var(--color-text)]">{r.product_name}</span>
+        <div className="max-w-[200px] truncate print:max-w-none print:whitespace-normal" title={r.product_name}>
+          <span className="font-medium text-[var(--color-text)] print:text-black">{r.product_name}</span>
           {r.customer_name && r.customer_name !== "—" ? (
-            <span className="block text-[11px] text-[var(--color-text-muted)] truncate">{r.customer_name}</span>
+            <span className="block text-[11px] text-[var(--color-text-muted)] print:text-slate-600 truncate print:max-w-none print:whitespace-normal">{r.customer_name}</span>
           ) : null}
         </div>
       ),
@@ -1138,7 +1145,7 @@ export default function ProductionPlanning() {
       key: "planned_quantity",
       label: "Qty",
       render: (r) => (
-        <span className="tabular-nums text-[var(--color-text)]">
+        <span className="tabular-nums text-[var(--color-text)] print:text-black">
           {Number(r.planned_quantity || 0).toLocaleString()}
         </span>
       ),
@@ -1168,7 +1175,7 @@ export default function ProductionPlanning() {
       key: "due_date",
       label: "Due",
       render: (r) => (
-        <span className="whitespace-nowrap text-[12px] tabular-nums text-[var(--color-text-secondary)]">
+        <span className="whitespace-nowrap text-[12px] tabular-nums text-[var(--color-text-secondary)] print:text-black">
           {formatDate(r.due_date)}
         </span>
       ),
@@ -1210,12 +1217,17 @@ export default function ProductionPlanning() {
           printDetailOrder ? "hidden print:hidden" : "print:m-0 print:block"
         }`}
       >
-          <div className="mb-4 hidden border-b pb-4 print:block">
-            <h1 className="text-xl font-bold text-black">Production Planning Report</h1>
-            <p className="text-xs text-slate-600">
-              Generated on: {new Date().toLocaleDateString()} | Total Orders: {filteredOrders.length}
-            </p>
+        <div className="mb-4 hidden border-b pb-4 print:block print-header-container">
+          <div className="flex justify-between items-center mb-2 text-xs text-slate-600 print-header-top">
+            <span className="font-bold text-blue-600 text-xs tracking-wide">Production · Planning</span>
+            <span className="font-bold text-blue-600 text-xs tracking-wide">Insights Iva</span>
           </div>
+          <h1 className="text-xl font-bold text-black print-header-title">Production Planning Report</h1>
+          <p className="text-xs text-slate-600 mt-1 print-header-meta">
+            Generated on: {new Date().toLocaleDateString()} | Total Orders: {filteredOrders.length}
+            {(user?.full_name || user?.name) ? ` | Printed By: ${user.full_name || user.name}` : ""}
+          </p>
+        </div>
 
           <input
             type="file"
@@ -1546,72 +1558,135 @@ export default function ProductionPlanning() {
 
       {/* Single Item Print View */}
       {printDetailOrder && (
-        <div className="hidden print:block p-8 bg-white text-black h-screen">
-          <div className="flex justify-between items-center mb-5 text-xs text-slate-600">
+        <div className="hidden print:block p-6 bg-white text-black font-sans text-xs min-h-screen">
+          {/* Top ERP Header Banner */}
+          <div className="flex justify-between items-center border-b border-slate-300 pb-3 mb-4 text-xs text-slate-600">
             <div>
-              <span className="font-bold text-blue-600 text-xs tracking-wide">Production</span>
-              {(user?.full_name || user?.name) && <span className="ml-2.5 text-slate-600">Welcome, {user.full_name || user.name}</span>}
+              <span className="font-extrabold text-blue-600 text-sm tracking-wide uppercase">Production · Planning</span>
             </div>
-            <span className="font-bold text-blue-600 text-xs tracking-wide">Insights Iva</span>
-          </div>
-          <div className="border-b-2 border-slate-900 pb-4 mb-6">
-            <h1 className="print-title text-4xl font-black uppercase tracking-wide text-black">Production Order Details</h1>
-            <p className="text-sm text-slate-500 mt-1">Order # {printDetailOrder.order_number} | Printed on {new Date().toLocaleDateString()} {(user?.full_name || user?.name) ? `| By: ${user.full_name || user.name}` : ""}</p>
+            <div className="text-right">
+              <span className="font-bold text-slate-800 text-xs tracking-wide">Insights Iva ERP</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-8">
+          {/* Document Title Header */}
+          <div className="flex justify-between items-end border-b-2 border-slate-900 pb-3 mb-6">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Product Information</p>
-              <p className="text-xl font-bold text-slate-900">{printDetailOrder.product_name || "—"}</p>
-              <p className="text-sm text-slate-700 mt-1">BOM Version: {printDetailOrder.bom_version || "Default"}</p>
+              <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900">Production Order Details</h1>
+              <p className="text-xs text-slate-600 mt-1 font-medium">
+                Order Reference: <span className="font-bold text-slate-900">{printDetailOrder.order_number || printDetailOrder.order_code || (printDetailOrder.id ? `PO-${printDetailOrder.id}` : "—")}</span>
+              </p>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Customer</p>
-              <p className="text-lg font-medium text-slate-800">{printDetailOrder.customer_name || "Internal"}</p>
+            <div className="text-right text-xs text-slate-600">
+              <p><span className="font-semibold text-slate-700">Date:</span> {new Date().toLocaleDateString()}</p>
+              {(user?.full_name || user?.name) && (
+                <p><span className="font-semibold text-slate-700">Printed By:</span> {user.full_name || user.name}</p>
+              )}
             </div>
-            
-            <div className="col-span-2 border-t border-slate-200 pt-6"></div>
+          </div>
 
+          {/* Section 1: Order Key Info Grid */}
+          <div className="mb-6">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
+              1. Order & Product Overview
+            </h2>
+            <table className="w-full border-collapse border border-slate-300 text-xs">
+              <tbody>
+                <tr>
+                  <td className="w-1/4 p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Product Name</td>
+                  <td className="w-1/4 p-2.5 font-bold text-slate-900 border border-slate-300">{printDetailOrder.product_name || "—"}</td>
+                  <td className="w-1/4 p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Customer</td>
+                  <td className="w-1/4 p-2.5 text-slate-800 border border-slate-300">{printDetailOrder.customer_name || "Internal / Stock"}</td>
+                </tr>
+                <tr>
+                  <td className="p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">BOM Version</td>
+                  <td className="p-2.5 text-slate-800 border border-slate-300">{printDetailOrder.bom_version || "BOM v1.0"}</td>
+                  <td className="p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Department</td>
+                  <td className="p-2.5 text-slate-800 border border-slate-300">{printDetailOrder.department || "Production"}</td>
+                </tr>
+                <tr>
+                  <td className="p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Priority</td>
+                  <td className="p-2.5 border border-slate-300">
+                    <span className="font-bold capitalize text-slate-900">{printDetailOrder.priority || "Medium"}</span>
+                  </td>
+                  <td className="p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Status</td>
+                  <td className="p-2.5 border border-slate-300">
+                    <span className="font-bold capitalize text-slate-900">{printDetailOrder.is_delayed ? "Delayed" : statusLabel(printDetailOrder.status)}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Section 2: Production Quantity Breakup */}
+          <div className="mb-6">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
+              2. Quantity & Execution Metrics
+            </h2>
+            <table className="w-full border-collapse border border-slate-300 text-xs text-center">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="p-2.5 border border-slate-300 font-bold text-slate-700">Planned Quantity</th>
+                  <th className="p-2.5 border border-slate-300 font-bold text-slate-700">Produced Quantity</th>
+                  <th className="p-2.5 border border-slate-300 font-bold text-slate-700">Remaining Balance</th>
+                  <th className="p-2.5 border border-slate-300 font-bold text-slate-700">Completion %</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="p-3 border border-slate-300 text-sm font-black text-slate-900">
+                    {Number(printDetailOrder.planned_quantity || 0).toLocaleString()}
+                  </td>
+                  <td className="p-3 border border-slate-300 text-sm font-bold text-emerald-700">
+                    {Number(printDetailOrder.produced_quantity || 0).toLocaleString()}
+                  </td>
+                  <td className="p-3 border border-slate-300 text-sm font-bold text-amber-700">
+                    {Math.max((Number(printDetailOrder.planned_quantity) || 0) - (Number(printDetailOrder.produced_quantity) || 0), 0).toLocaleString()}
+                  </td>
+                  <td className="p-3 border border-slate-300 text-sm font-bold text-blue-700">
+                    {calculateProgressPct(printDetailOrder)}%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Section 3: Schedule & Resource Allocation */}
+          <div className="mb-8">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
+              3. Schedule & Machine Assignment
+            </h2>
+            <table className="w-full border-collapse border border-slate-300 text-xs">
+              <tbody>
+                <tr>
+                  <td className="w-1/4 p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Start Date</td>
+                  <td className="w-1/4 p-2.5 text-slate-800 border border-slate-300">{formatDate(printDetailOrder.start_date)}</td>
+                  <td className="w-1/4 p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Assigned Machine</td>
+                  <td className="w-1/4 p-2.5 font-bold text-slate-900 border border-slate-300">{printDetailOrder.machine_name || "Unassigned"}</td>
+                </tr>
+                <tr>
+                  <td className="p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Due Date</td>
+                  <td className="p-2.5 text-slate-800 border border-slate-300">{formatDate(printDetailOrder.due_date)}</td>
+                  <td className="p-2.5 font-semibold text-slate-700 bg-slate-50 border border-slate-300">Shift</td>
+                  <td className="p-2.5 text-slate-800 border border-slate-300">
+                    {typeof printDetailOrder.shift === "object" ? (printDetailOrder.shift?.label || printDetailOrder.shift?.id || "—") : (printDetailOrder.shift || "General Shift")}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Signatures & Authorization Block */}
+          <div className="mt-12 pt-8 border-t border-slate-300 grid grid-cols-2 gap-8 text-xs text-slate-600">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Priority & Status</p>
-              <div className="flex items-center gap-4 mt-1">
-                <PriorityPill priority={printDetailOrder.priority} />
-                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold capitalize border border-slate-300`}>
-                  {printDetailOrder.is_delayed ? "delayed" : statusLabel(printDetailOrder.status)}
-                </span>
-              </div>
+              <p className="font-semibold text-slate-700">Prepared / Issued By:</p>
+              <div className="h-12 border-b border-slate-400 mt-2 w-3/4"></div>
+              <p className="mt-1 text-[11px] text-slate-500">Date & Signature</p>
             </div>
-
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Production Quantities</p>
-              <div className="grid grid-cols-3 gap-4 mt-1">
-                <div>
-                  <span className="block text-xl font-bold">{printDetailOrder.planned_quantity}</span>
-                  <span className="text-xs text-slate-500">Planned</span>
-                </div>
-                <div>
-                  <span className="block text-xl font-bold">{printDetailOrder.produced_quantity || 0}</span>
-                  <span className="text-xs text-slate-500">Produced</span>
-                </div>
-                <div>
-                  <span className="block text-xl font-bold">{Math.max((printDetailOrder.planned_quantity || 0) - (printDetailOrder.produced_quantity || 0), 0)}</span>
-                  <span className="text-xs text-slate-500">Balance</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-span-2 border-t border-slate-200 pt-6"></div>
-
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Schedule</p>
-              <p className="text-sm"><span className="font-medium">Start:</span> {formatDate(printDetailOrder.start_date)}</p>
-              <p className="text-sm mt-1"><span className="font-medium">Due:</span> {formatDate(printDetailOrder.due_date)}</p>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Assignment</p>
-              <p className="text-sm"><span className="font-medium">Machine:</span> {printDetailOrder.machine_name || "Unassigned"}</p>
-              <p className="text-sm mt-1"><span className="font-medium">Shift:</span> {typeof printDetailOrder.shift === "object" ? (printDetailOrder.shift?.label || printDetailOrder.shift?.id || "—") : (printDetailOrder.shift || "—")}</p>
+            <div className="text-right">
+              <p className="font-semibold text-slate-700">Production Supervisor Authorization:</p>
+              <div className="h-12 border-b border-slate-400 mt-2 w-3/4 ml-auto"></div>
+              <p className="mt-1 text-[11px] text-slate-500">Date & Signature</p>
             </div>
           </div>
         </div>
@@ -1707,8 +1782,8 @@ export default function ProductionPlanning() {
       <style>{`
         @media print {
           @page {
-            size: landscape;
-            margin: 4mm;
+            size: A4 landscape;
+            margin: 6mm;
           }
           *, *::before, *::after {
             box-shadow: none !important;
@@ -1720,69 +1795,76 @@ export default function ProductionPlanning() {
             width: 0 !important;
             height: 0 !important;
           }
-          html, body, #root {
+          html, body, #root, main, #main-content, .app-shell, .ui-page, .ui-list-page, .ui-list-page__stack, .ui-list-card, .ui-list-card__body, .ui-table-wrap {
             width: 100% !important;
             max-width: 100% !important;
+            min-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
-            background-color: #fff !important;
-            color: #000 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            float: none !important;
+            display: block !important;
           }
-          div, section, article, main, table, .overflow-x-auto {
-            overflow: visible !important;
-            overflow-x: visible !important;
-            overflow-y: visible !important;
+          .print-header-container {
+            display: block !important;
             width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            border-radius: 0 !important;
+            margin-bottom: 12px !important;
+            padding-bottom: 8px !important;
+            border-bottom: 1.5px solid #cbd5e1 !important;
           }
-          body * {
-            background-color: #fff !important;
-            background: transparent !important;
-            color: #000 !important;
-            font-size: 10px !important;
-            font-weight: 400 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          .print-header-top {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
+            margin-bottom: 4px !important;
           }
-          table {
+          .print-header-title {
+            font-size: 18pt !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            text-transform: none !important;
+            line-height: 1.2 !important;
+            margin: 4px 0 !important;
+            white-space: nowrap !important;
+          }
+          .print-header-meta {
+            font-size: 9pt !important;
+            color: #475569 !important;
+            margin-top: 2px !important;
+          }
+          table, .ui-table {
             width: 100% !important;
             max-width: 100% !important;
             border-collapse: collapse !important;
-            font-size: 10px !important;
+            font-size: 9pt !important;
             table-layout: auto !important;
-            margin: 0 !important;
+            margin-top: 8px !important;
           }
-          th {
+          th, td {
             border: 1px solid #cbd5e1 !important;
-            padding: 4px 6px !important;
+            padding: 6px 8px !important;
             white-space: normal !important;
             word-break: break-word !important;
-            background-color: #f8fafc !important;
-            font-size: 10px !important;
+            font-size: 9pt !important;
+          }
+          th {
+            background-color: #f1f5f9 !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
             text-align: left !important;
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 4px 6px !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            font-size: 10px !important;
+            color: #1e293b !important;
             vertical-align: middle !important;
           }
           tr {
             page-break-inside: avoid !important;
-          }
-          h1, .print-title, .title {
-            font-size: 28px !important;
-            font-weight: 900 !important;
-            text-transform: uppercase !important;
-            line-height: 1.2 !important;
-            margin-bottom: 4px !important;
           }
           .print\\:hidden, th.print\\:hidden, td.print\\:hidden, [class*="print:hidden"] {
             display: none !important;

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 
 import SearchableSelect from "../common/SearchableSelect";
 import { getVendors } from "../../api/procurementApi";
@@ -85,6 +87,7 @@ export function validateVendorPricingForm(pricing) {
 }
 
 export default function ProductVendorPricingFields({ pricing, onChange, disabled }) {
+  const navigate = useNavigate();
   const [vendorOptions, setVendorOptions] = useState([]);
 
   useEffect(() => {
@@ -131,11 +134,37 @@ export default function ProductVendorPricingFields({ pricing, onChange, disabled
           <PricingField label="Vendor">
             <SearchableSelect
               value={pricing.supplier_id}
-              onChange={(v) => set("supplier_id", v)}
+              onChange={(v) => {
+                if (v === "__create_vendor") {
+                  navigate("/procurement/vendors/create");
+                } else {
+                  set("supplier_id", v);
+                }
+              }}
               options={vendorOptions}
+              footerOptions={[{ value: "__create_vendor", label: "+ Add Vendor" }]}
+              onFooterPick={() => navigate("/procurement/vendors/create")}
               placeholder="Select vendor"
               disabled={disabled}
-              emptyListMessage="No vendors found. Add vendors under Purchases."
+              emptyListMessage={
+                <div className="flex flex-col items-center justify-center gap-2 py-1 text-center">
+                  <span className="text-xs font-medium text-[var(--color-text-muted)]">
+                    No vendors found. Add vendors under Purchases.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate("/procurement/vendors/create");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden />
+                    Create Vendor
+                  </button>
+                </div>
+              }
             />
           </PricingField>
           <div className="hidden sm:block" aria-hidden />

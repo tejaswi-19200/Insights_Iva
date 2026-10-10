@@ -28,11 +28,11 @@ import {
 export default function LiveProduction() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_SHOP_SUMMARY);
-  const [grid, setGrid] = useState(DEMO_SHOP_GRID);
+  const [summary, setSummary] = useState({ total_machines: 0, running: 0, idle: 0, breakdown: 0, efficiency_percentage: 0 });
+  const [grid, setGrid] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [timeline, setTimeline] = useState(DEMO_SHOP_TIMELINE);
-  const [layout, setLayout] = useState(DEMO_MACHINE_LAYOUT);
+  const [timeline, setTimeline] = useState([]);
+  const [layout, setLayout] = useState([]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -45,7 +45,9 @@ export default function LiveProduction() {
       ]);
 
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
-        setSummary({ ...DEMO_SHOP_SUMMARY, ...sumRes.value.data });
+        setSummary(sumRes.value.data);
+      } else {
+        setSummary({ total_machines: 0, running: 0, idle: 0, breakdown: 0, efficiency_percentage: 0 });
       }
       if (gridRes.status === "fulfilled" && gridRes.value?.data?.length) {
         setGrid(gridRes.value.data);
@@ -56,12 +58,19 @@ export default function LiveProduction() {
             status: r.status,
           }))
         );
+      } else {
+        setGrid([]);
+        setLayout([]);
       }
       if (alertRes.status === "fulfilled" && alertRes.value?.data?.length) {
         setAlerts(alertRes.value.data);
+      } else {
+        setAlerts([]);
       }
       if (timeRes.status === "fulfilled" && timeRes.value?.data?.length) {
         setTimeline(timeRes.value.data);
+      } else {
+        setTimeline([]);
       }
     } catch {
     } finally {

@@ -329,7 +329,7 @@ function ShiftCell({ shiftKey, onChange, readOnly }) {
 export default function MonthlyShifts() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
+  const [employees, setEmployees] = useState([]);
   const [assignments, setAssignments] = useState({});
   const [history, setHistory] = useState([]);
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
@@ -361,7 +361,7 @@ export default function MonthlyShifts() {
         getMonthlyShifts({ year: viewYear, month: viewMonth + 1 }),
         getMonthlyShiftVersionHistory({ year: viewYear, month: viewMonth + 1 }),
       ]);
-      const empList = empRes?.data?.length ? empRes.data : [DEMO_EMPLOYEE];
+      const empList = empRes?.data || [];
       setEmployees(empList);
       setHistory(histRes?.data || []);
 
@@ -373,7 +373,7 @@ export default function MonthlyShifts() {
       }
       setAssignments(map);
     } catch {
-      setEmployees([DEMO_EMPLOYEE]);
+      setEmployees([]);
       setAssignments({});
       setHistory([]);
     } finally {

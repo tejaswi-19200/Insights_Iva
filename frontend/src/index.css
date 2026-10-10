@@ -1653,16 +1653,12 @@ input.pl-8 {
   }
 }
 .ui-section-title {
-  display: block;
-  width: 100%;
+  display: inline-block;
   margin: 0;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  background: var(--color-primary);
-  color: #ffffff;
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: 0;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1.35;
 }
 .ui-page-title {
@@ -3293,27 +3289,74 @@ html.has-sticky-page-footer .app-shell-fab-stack {
     overflow: visible !important;
   }
 
-  /* Clean full-width table formatting with borders (non-invoice / non-payslip pages). */
+  /* Clean full-width table formatting with single crisp cell grid lines (no outer double container borders). */
+  .ui-page,
+  .ui-card,
+  .ui-list-card,
+  .ui-list-card__body,
+  .ui-table-wrap,
+  .ui-table-wrap--scroll,
+  .planning-table-panel,
+  .planning-table-panel .ui-table-wrap,
+  div:has(> table),
+  section:has(> table) {
+    border: none !important;
+    border-radius: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .planning-table-panel .ui-table-wrap table {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card),
+  table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) thead,
+  table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) tbody,
+  table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) tr,
+  table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) th,
+  table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) td {
+    border-radius: 0 !important;
+  }
+
   table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) {
     width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
     border-collapse: collapse !important;
     margin-top: 0.5rem !important;
     margin-bottom: 0.5rem !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
   table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) th,
   table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) td {
     border: 1px solid #cbd5e1 !important;
-    padding: 6px 10px !important;
+    padding: 8px 12px !important;
     text-align: left !important;
     color: #000000 !important;
     background: transparent !important;
     font-size: 10pt !important;
+    vertical-align: middle !important;
+    border-radius: 0 !important;
   }
 
   table:not(.erp-doc *):not(.erp-doc):not(.gst-invoice *):not(.payslip-card *):not(.payslip-card) th {
-    background-color: #f1f5f9 !important;
+    background-color: #f8fafc !important;
     font-weight: 700 !important;
+    white-space: nowrap !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.03em !important;
+    font-size: 9pt !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

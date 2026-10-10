@@ -738,44 +738,7 @@ export const EMPTY_HR_DASHBOARD = {
   departments: [],
 };
 
-export const DEMO_HR_DASHBOARD = {
-  pending_requests: 0,
-    analytics_month_label: monthYearLabel(),
-  active_employees: 1,
-  hired_month: 1,
-  exits_month: 0,
-  present_today: 0,
-  absent_today: 1,
-  on_leave_today: 0,
-  celebrations: [],
-  overall_employees: 1,
-  hired_total: 1,
-  exits_total: 0,
-  upcoming_holidays: [],
-  shift_schedule: {
-    name: "General",
-    initial: "G",
-    date_range: "07 Sep 2026 - 30 Sep 2026",
-    time_range: "10:00 AM to 07:00 PM",
-  },
-  expense_total: 0,
-  expense_categories: [],
-  my_leaves: [
-    { key: "casual", label: "Casual Leave", available: 0, tone: "green", icon: "palmtree" },
-    { key: "comp_off", label: "Compensatory Off", available: 0, tone: "orange", icon: "sparkles" },
-    { key: "earned", label: "Earned Leave", available: 0, tone: "blue", icon: "calendar" },
-    { key: "maternity", label: "Maternity Leave", available: 0, tone: "sky", icon: "baby" },
-    { key: "paternity", label: "Paternity Leave", available: 0, tone: "red", icon: "users" },
-    { key: "sabbatical", label: "Sabbatical Leave", available: 0, tone: "yellow", icon: "plane" },
-  ],
-  approval_counts: { attendance: 0, expenses: 0, overtime: 0 },
-  approval_requests: [],
-  announcements: [],
-  payslips: [],
-  total_employees: 1,
-  leave_requests: 0,
-  departments: [],
-};
+export const DEMO_HR_DASHBOARD = EMPTY_HR_DASHBOARD;
 
 /** @deprecated use EMPTY_HR_DASHBOARD */
 export const EMPTY_HR_HUB = EMPTY_HR_DASHBOARD;
@@ -794,7 +757,7 @@ export function mergeHrDashboard({
   employees = [],
   attendanceRows = [],
 } = {}) {
-  const demo = DEMO_HR_DASHBOARD;
+  const demo = EMPTY_HR_DASHBOARD;
   const activeEmployees = Number(empSummary.total_employees ?? hub.total_employees) || 0;
   const hasLive = activeEmployees > 0;
 
@@ -807,8 +770,8 @@ export function mergeHrDashboard({
   const inactiveEstimate = attritionRate > 0 && activeEmployees > 0
     ? Math.round((activeEmployees * attritionRate) / (100 - attritionRate))
     : 0;
-  const exitsTotal = inactiveEstimate || demo.exits_total;
-  const overallEmployees = hasLive ? activeEmployees + exitsTotal : demo.overall_employees;
+  const exitsTotal = inactiveEstimate;
+  const overallEmployees = hasLive ? activeEmployees + exitsTotal : 0;
 
   const pendingAttendance = (attendanceRows || []).filter((r) =>
     ["pending", "late", "half_day"].includes(String(r.status || "").toLowerCase())
@@ -847,7 +810,7 @@ export function mergeHrDashboard({
         )} ${new Date().getFullYear()}`,
         time_range: `${formatTime12h(firstShift.start_time)} to ${formatTime12h(firstShift.end_time)}`,
       }
-    : demo.shift_schedule;
+    : null;
 
   const myLeaves = demo.my_leaves.map((row) => ({
     ...row,
@@ -880,7 +843,7 @@ export function mergeHrDashboard({
   }));
 
   if (!hasLive) {
-    return { ...demo };
+    return { ...EMPTY_HR_DASHBOARD };
   }
 
   return {

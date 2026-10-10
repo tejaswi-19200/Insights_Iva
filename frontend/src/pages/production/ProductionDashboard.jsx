@@ -29,24 +29,62 @@ import MachineControlCard from "../../components/dashboard/MachineControlCard";
 import { useCallback, useEffect, useState } from "react";
 
 
-function StatusPanel({ title, items, icon: Icon }) {
+function StatusPanel({ title, items, icon: Icon, to }) {
   return (
-    <section className="ui-card p-4">
-      <div className="mb-3 flex items-center gap-2">
-        {Icon ? (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
-            <Icon className="h-4 w-4" strokeWidth={1.75} />
-          </span>
+    <section className="ui-card flex flex-col h-full p-4 transition-all hover:shadow-md">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {Icon ? (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+              <Icon className="h-4 w-4" strokeWidth={2} />
+            </span>
+          ) : null}
+          {to ? (
+            <Link
+              to={to}
+              className="text-sm sm:text-[15px] font-bold text-[var(--color-text)] hover:text-[var(--color-primary)] truncate transition-colors"
+            >
+              {title}
+            </Link>
+          ) : (
+            <h3 className="text-sm sm:text-[15px] font-bold text-[var(--color-text)] truncate">{title}</h3>
+          )}
+        </div>
+        {to ? (
+          <Link
+            to={to}
+            className="shrink-0 text-xs font-semibold text-[var(--color-primary)] hover:underline flex items-center gap-0.5"
+          >
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         ) : null}
-        <h3 className="ui-section-title">{title}</h3>
       </div>
-      <dl className="space-y-2">
-        {items.map(([label, value, status]) => (
-          <div key={label} className="flex items-center justify-between text-[var(--text-sm)]">
-            <dt className="text-[var(--color-text-muted)]">{label}</dt>
-            <dd className={`font-bold tabular-nums ${hubStatusColor(status)}`}>{value ?? 0}</dd>
-          </div>
-        ))}
+      <dl className="space-y-2 pt-2.5 border-t border-[var(--color-border-soft)]">
+        {items.map(([label, value, status, itemTo]) => {
+          const target = itemTo || to;
+          const content = (
+            <>
+              <dt className="text-[13px] text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors">{label}</dt>
+              <dd className={`text-[13px] font-bold tabular-nums ${hubStatusColor(status)}`}>{value ?? 0}</dd>
+            </>
+          );
+          if (target) {
+            return (
+              <Link
+                key={label}
+                to={target}
+                className="group flex items-center justify-between rounded-md px-2 py-1.5 -mx-2 transition hover:bg-[var(--color-surface-muted)] cursor-pointer"
+              >
+                {content}
+              </Link>
+            );
+          }
+          return (
+            <div key={label} className="flex items-center justify-between px-2 py-1.5">
+              {content}
+            </div>
+          );
+        })}
       </dl>
     </section>
   );
@@ -148,24 +186,28 @@ export default function ProductionDashboard() {
             value={summary.job_cards_pending ?? 0}
             icon={ClipboardList}
             tone="warning"
+            to="/my-job-cards?status=pending"
           />
           <KpiCard
             label="Job Cards In Progress"
             value={summary.job_cards_in_progress ?? 0}
             icon={PlayCircle}
             tone="info"
+            to="/my-job-cards?status=in_progress"
           />
           <KpiCard
             label="Produced Today"
             value={formatProducedToday(summary.produced_today)}
             icon={CheckCircle2}
             tone="success"
+            to="/production/reports"
           />
           <KpiCard
             label="Pending QC"
             value={summary.pending_qc ?? 0}
             icon={BadgeCheck}
             tone="violet"
+            to="/quality/in-process"
           />
         </div>
       </section>
@@ -196,43 +238,51 @@ export default function ProductionDashboard() {
         <StatusPanel
           title="Machine Status"
           icon={Cpu}
+          to="/production/machines"
           items={[
-            ["Running", hub.machines_running, "running"],
-            ["Idle", hub.machines_idle, "idle"],
-            ["Down / Maintenance", hub.machines_down, "warning"],
+            ["Running", hub.machines_running, "running", "/production/machines?status=running"],
+            ["Idle", hub.machines_idle, "idle", "/production/machines?status=idle"],
+            ["Down / Maintenance", hub.machines_down, "warning", "/maintenance/equipment"],
           ]}
         />
         <StatusPanel
           title="Production Status"
           icon={Factory}
+          to="/production/work-orders"
           items={[
-            ["Running Jobs", hub.running_jobs, "running"],
-            ["Machines Running", hub.machines_running, "running"],
-            ["Completed Today (WO)", hub.production_completed_today, "ok"],
+            ["Running Jobs", hub.running_jobs, "running", "/production/work-orders?status=in_progress"],
+            ["Machines Running", hub.machines_running, "running", "/production/machines"],
+            ["Completed Today (WO)", hub.production_completed_today, "ok", "/production/work-orders?status=completed"],
           ]}
         />
         <StatusPanel
           title="Material Status"
           icon={Package}
+          to="/inventory"
           items={[
-            ["Available", hub.material_available, "ok"],
-            ["Shortages", hub.material_shortages, "warning"],
+            ["Available", hub.material_available, "ok", "/inventory/raw-materials"],
+            ["Shortages", hub.material_shortages, "warning", "/inventory/material-requests"],
+            ["Material Waiting", actions.material_waiting ?? 0, "warning", "/inventory/material-requests"],
           ]}
         />
         <StatusPanel
           title="Operator Status"
           icon={Users}
+          to="/production/operator-jobs"
           items={[
-            ["Present", hub.operators_present, "ok"],
-            ["Absent", hub.operators_absent, "warning"],
+            ["Present", hub.operators_present, "ok", "/production/operator-jobs"],
+            ["Absent", hub.operators_absent, "warning", "/hr/attendance"],
+            ["Total Assigned", (hub.operators_present ?? 0) + (hub.operators_absent ?? 0), "running", "/production/operator-jobs"],
           ]}
         />
         <StatusPanel
           title="Quality Status"
           icon={CheckCircle2}
+          to="/quality"
           items={[
-            ["Passed", hub.quality_passed, "ok"],
-            ["Failed", hub.quality_failed, "warning"],
+            ["Passed", hub.quality_passed, "ok", "/quality/inspection"],
+            ["Failed", hub.quality_failed, "warning", "/quality/defects"],
+            ["Pending Inspection", summary.pending_qc ?? 0, "idle", "/quality/in-process"],
           ]}
         />
         <section className="ui-card p-4">
@@ -249,7 +299,7 @@ export default function ProductionDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="ui-card p-4">
+        <section className="ui-card flex flex-col h-full p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-text)]">Running Jobs</h3>
             <Link to="/production/work-orders" className="text-xs font-semibold text-[var(--color-success)] hover:underline">
@@ -257,7 +307,9 @@ export default function ProductionDashboard() {
             </Link>
           </div>
           {(hub.recent_jobs || []).length === 0 ? (
-            <p className="py-8 text-center text-sm text-[var(--color-text-muted)]">No running jobs right now.</p>
+            <div className="flex flex-1 items-center justify-center py-12 text-center">
+              <p className="text-sm font-medium text-[var(--color-text-muted)]">No running jobs right now.</p>
+            </div>
           ) : (
             <div className="space-y-2">
               {(hub.recent_jobs || []).map((j) => (

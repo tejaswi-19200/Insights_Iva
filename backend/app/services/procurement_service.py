@@ -849,9 +849,19 @@ def list_supplier_payments(db: Session, tenant_id: int) -> list[SupplierPayment]
 
 
 def delete_material_request(db: Session, tenant_id: int, mr_id: int) -> bool:
+    from app.models.procurement import MaterialRequestLine
+
     mr = get_material_request(db, tenant_id, mr_id)
     if not mr:
         return False
+
+    for line in db.scalars(
+        select(MaterialRequestLine).where(
+            MaterialRequestLine.material_request_id == mr_id
+        )
+    ).all():
+        db.delete(line)
+
     db.delete(mr)
     db.commit()
     return True
@@ -915,6 +925,8 @@ def get_goods_receipt(db: Session, tenant_id: int, grn_id: int) -> GoodsReceipt 
 
 
 def delete_goods_receipt(db: Session, tenant_id: int, grn_id: int) -> bool:
+    from app.models.procurement import GoodsReceiptLine
+
     gr = get_goods_receipt(db, tenant_id, grn_id)
     if not gr:
         return False
@@ -922,6 +934,14 @@ def delete_goods_receipt(db: Session, tenant_id: int, grn_id: int) -> bool:
     status_val = (gr.status or "").lower()
     if qc in ("pass", "passed", "approved") or status_val == "received":
         _reverse_grn_stock(db, gr, tenant_id)
+
+    for line in db.scalars(
+        select(GoodsReceiptLine).where(
+            GoodsReceiptLine.goods_receipt_id == grn_id
+        )
+    ).all():
+        db.delete(line)
+
     db.delete(gr)
     db.commit()
     return True

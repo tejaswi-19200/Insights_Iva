@@ -252,9 +252,9 @@ export default function Holiday() {
     try {
       const res = await getHolidays({ year: viewYear });
       const data = res?.data || [];
-      setRecords(data.length ? data : DEFAULT_HOLIDAYS);
+      setRecords(data);
     } catch {
-      setRecords(DEFAULT_HOLIDAYS);
+      setRecords([]);
     } finally {
       setLoading(false);
     }

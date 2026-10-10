@@ -314,16 +314,8 @@ export default function LeaveAdjustment() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [historyModalEmployee, setHistoryModalEmployee] = useState(null);
-  const [employees, setEmployees] = useState([DEMO_EMPLOYEE]);
-  const [rows, setRows] = useState(() => [
-    {
-      employeeId: DEMO_EMPLOYEE.employee_id,
-      name: DEMO_EMPLOYEE.full_name,
-      department: DEMO_EMPLOYEE.department,
-      branch: DEMO_EMPLOYEE.branch,
-      balances: emptyBalances(),
-    },
-  ]);
+  const [employees, setEmployees] = useState([]);
+  const [rows, setRows] = useState([]);
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [branchFilter, setBranchFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -358,9 +350,7 @@ export default function LeaveAdjustment() {
       ]);
       if (empResult.status !== "fulfilled") throw empResult.reason;
 
-      const empList = Array.isArray(empResult.value?.data) && empResult.value.data.length
-        ? empResult.value.data
-        : [DEMO_EMPLOYEE];
+      const empList = Array.isArray(empResult.value?.data) ? empResult.value.data : [];
       setEmployees(empList);
 
       const adjustmentMap = {};
@@ -380,8 +370,8 @@ export default function LeaveAdjustment() {
       }
       setRows(buildRowsFromEmployees(empList, adjustmentMap));
     } catch {
-      setEmployees([DEMO_EMPLOYEE]);
-      setRows(buildRowsFromEmployees([DEMO_EMPLOYEE]));
+      setEmployees([]);
+      setRows([]);
     } finally {
       setLoading(false);
     }

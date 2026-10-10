@@ -301,6 +301,8 @@ def update_product(
 
 def _delete_related_for_product(db: Session, tenant_id: int, product_id: int) -> None:
     """Remove FK dependents so a product row can be deleted when ON DELETE CASCADE is absent."""
+    from app.models.product_vendor_pricing import ProductVendorPricing
+
     for event in db.scalars(
         select(ProductStockEvent).where(
             ProductStockEvent.product_id == product_id,
@@ -308,6 +310,14 @@ def _delete_related_for_product(db: Session, tenant_id: int, product_id: int) ->
         )
     ).all():
         db.delete(event)
+
+    for pvp in db.scalars(
+        select(ProductVendorPricing).where(
+            ProductVendorPricing.product_id == product_id,
+            ProductVendorPricing.tenant_id == tenant_id,
+        )
+    ).all():
+        db.delete(pvp)
 
     for bom in db.scalars(
         select(BillOfMaterial).where(

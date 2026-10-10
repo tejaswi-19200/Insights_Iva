@@ -497,6 +497,9 @@ def create_category(db: Session, tenant_id: int, name: str) -> dict:
 
 
 def delete_category(db: Session, tenant_id: int, category_id: int) -> bool:
+    from sqlalchemy import or_
+    from app.models.inventory import InventoryItem
+
     row = db.scalars(
         select(InventoryCategory).where(
             InventoryCategory.id == category_id,
@@ -507,6 +510,30 @@ def delete_category(db: Session, tenant_id: int, category_id: int) -> bool:
         return False
     if row.name.lower() == "no category":
         raise HTTPException(400, detail="Cannot delete default category")
+
+    # Unlink or update products and inventory items tied to this category
+    products = list(
+        db.scalars(
+            select(Product).where(
+                Product.tenant_id == tenant_id,
+                func.lower(Product.category) == row.name.lower(),
+            )
+        ).all()
+    )
+    for p in products:
+        p.category = None
+
+    items = list(
+        db.scalars(
+            select(InventoryItem).where(
+                InventoryItem.tenant_id == tenant_id,
+                func.lower(InventoryItem.category) == row.name.lower(),
+            )
+        ).all()
+    )
+    for i in items:
+        i.category = None
+
     db.delete(row)
     db.commit()
     return True

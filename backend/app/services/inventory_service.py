@@ -263,7 +263,6 @@ def create_inventory_item(
         if wh:
             sl = db.scalars(
                 select(StockLevel).where(
-                    StockLevel.tenant_id == item.tenant_id,
                     StockLevel.warehouse_id == wh.id,
                     StockLevel.item_id == item.id,
                 )
@@ -271,7 +270,6 @@ def create_inventory_item(
             if not sl:
                 db.add(
                     StockLevel(
-                        tenant_id=item.tenant_id,
                         warehouse_id=wh.id,
                         item_id=item.id,
                         quantity=item.quantity,

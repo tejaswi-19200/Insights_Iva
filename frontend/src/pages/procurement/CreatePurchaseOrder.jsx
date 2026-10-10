@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Building2, ChevronDown, FileText, Grid2x2, ImagePlus, Paperclip, MapPin, Package, PenLine, Plane, Plus, Ban, Search, Ship, TrainFront, Trash2, Truck, User, X } from "lucide-react";
+import { ArrowLeft, Building2, ChevronDown, FileText, Grid2x2, GripVertical, ImagePlus, Paperclip, MapPin, Package, PenLine, Plane, Plus, Ban, Search, Ship, TrainFront, Trash2, Truck, User, X } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import { SearchBar } from "../../components/common/SearchFilter";
@@ -327,6 +327,7 @@ export default function CreatePurchaseOrder() {
     reverse_charge: false,
   });
   const [items, setItems] = useState([emptyItem(), emptyItem(), emptyItem()]);
+  const [dragRowIdx, setDragRowIdx] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -832,10 +833,10 @@ export default function CreatePurchaseOrder() {
             <table className="w-full min-w-[1100px] border-collapse text-left text-[12px]">
               <thead className="ui-table-head">
                 <tr>
-                  {["#", "Item Name", "HSN", "Qty", "Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
-                    (h) => (
+                  {["S.No", "Item Name", "HSN", "Qty", "Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
+                    (h, hi) => (
                       <th
-                        key={h || "x"}
+                        key={`${h}-${hi}`}
                         className="whitespace-nowrap border-b border-r border-[var(--color-border)] px-2 py-2.5 font-semibold last:border-r-0"
                       >
                         {h}
@@ -851,8 +852,39 @@ export default function CreatePurchaseOrder() {
                   const cell = "border-b border-r border-[var(--color-border)] px-2 py-2 last:border-r-0";
                   const rowKey = row._rowKey;
                   return (
-                    <tr key={rowKey}>
-                      <td className={`${cell} text-[var(--color-text-faint)]`}>{idx + 1}</td>
+                    <tr
+                      key={rowKey}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragRowIdx(idx);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", String(idx));
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = dragRowIdx !== null ? dragRowIdx : parseInt(e.dataTransfer.getData("text/plain"), 10);
+                        if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                        setItems((prev) => {
+                          const updated = [...prev];
+                          const [removed] = updated.splice(sourceIdx, 1);
+                          updated.splice(idx, 0, removed);
+                          return updated;
+                        });
+                        setDragRowIdx(null);
+                      }}
+                      onDragEnd={() => setDragRowIdx(null)}
+                      className={`transition-colors ${dragRowIdx === idx ? "opacity-40 bg-blue-50/50" : ""}`}
+                    >
+                      <td className={`${cell} text-[var(--color-text-faint)]`}>
+                        <div className="flex items-center justify-center gap-1 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder row">
+                          <GripVertical className="h-3.5 w-3.5 text-[#a0a0ab] hover:text-blue-600 shrink-0" />
+                          <span>{idx + 1}</span>
+                        </div>
+                      </td>
                       <td className={cell}>
                         <div className="relative min-w-[160px]">
                           <SearchBar
@@ -860,6 +892,12 @@ export default function CreatePurchaseOrder() {
                             list={`po-item-options-${rowKey}`}
                             value={row.item_description}
                             onChange={(v) => updateItem(rowKey, "item_description", v)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }
+                            }}
                             onBlur={(e) => syncCatalogItem(rowKey, e.target.value)}
                             placeholder="Select Item"
                             clearable={false}

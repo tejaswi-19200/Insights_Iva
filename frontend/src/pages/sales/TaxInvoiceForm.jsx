@@ -9,6 +9,7 @@ import ShorthandQuantityInput from "../../components/common/ShorthandQuantityInp
 import AddBankAccountModal from "../../components/sales/AddBankAccountModal";
 import AddCustomFieldModal from "../../components/sales/AddCustomFieldModal";
 import AddNewItemModal from "../../components/sales/AddNewItemModal";
+import ItemPickerDropdown from "../../components/sales/ItemPickerDropdown";
 import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
 import AddInvoiceDiscountModal from "../../components/sales/AddInvoiceDiscountModal";
 import AddOtherChargesModal, {
@@ -320,6 +321,7 @@ export default function TaxInvoiceForm() {
   const [products, setProducts] = useState([]);
   const [itemPickerIdx, setItemPickerIdx] = useState(null);
   const [itemSearch, setItemSearch] = useState("");
+  const [highlightedIdx, setHighlightedIdx] = useState(0);
   const [numberManual, setNumberManual] = useState(false);
   const [erpFieldsOpen, setErpFieldsOpen] = useState(true);
   const [form, setForm] = useState({
@@ -374,6 +376,8 @@ export default function TaxInvoiceForm() {
     reverse_charge: false,
   });
   const [items, setItems] = useState([emptyItem(), emptyItem(), emptyItem()]);
+  const [dragRowIdx, setDragRowIdx] = useState(null);
+  const [itemToEdit, setItemToEdit] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -666,11 +670,15 @@ export default function TaxInvoiceForm() {
     });
     setItemPickerIdx(null);
     setItemSearch("");
+    setHighlightedIdx(0);
   };
 
   const filteredProducts = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
-    if (!q) return products.slice(0, 40);
+    const curDesc = (items[itemPickerIdx]?.item_description || "").trim().toLowerCase();
+    if (!q || (itemPickerIdx !== null && q === curDesc)) {
+      return products.slice(0, 40);
+    }
     return products
       .filter((p) =>
         [p.name, p.sku, p.hsn_code, p.product_code]
@@ -678,7 +686,7 @@ export default function TaxInvoiceForm() {
           .some((v) => String(v).toLowerCase().includes(q))
       )
       .slice(0, 40);
-  }, [products, itemSearch]);
+  }, [products, itemSearch, itemPickerIdx, items]);
 
   const removeItem = (idx) => {
     setItems((prev) => (prev.length <= 1 ? [emptyItem()] : prev.filter((_, i) => i !== idx)));
@@ -1349,7 +1357,7 @@ export default function TaxInvoiceForm() {
             <table className="w-full min-w-[1180px] border-collapse text-left text-[12px]">
               <thead className="ui-table-head">
                 <tr>
-                  {["", "#", "Item Name", "HSN", "Qty", "Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
+                  {["S.No", "Item Name", "HSN", "Qty", "Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
                     (h, hi) => (
                       <th key={`${h}-${hi}`} className="whitespace-nowrap border-b border-r border-[#d0d0d8] px-2 py-2.5 font-semibold last:border-r-0">
                         {h}
@@ -1364,23 +1372,74 @@ export default function TaxInvoiceForm() {
                   const hasDesc = Boolean(row.item_description?.trim());
                   const gstValue = row.gst_option || gstOptionFromPct(row.gst_pct);
                   return (
-                    <tr key={idx}>
-                      <td className="border-b border-r border-[#d0d0d8] px-1.5 py-2 text-[#c4c4cc]">
-                        <GripVertical className="mx-auto h-4 w-4" />
+                    <tr
+                      key={idx}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragRowIdx(idx);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", String(idx));
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = dragRowIdx !== null ? dragRowIdx : parseInt(e.dataTransfer.getData("text/plain"), 10);
+                        if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                        setItems((prev) => {
+                          const updated = [...prev];
+                          const [removed] = updated.splice(sourceIdx, 1);
+                          updated.splice(idx, 0, removed);
+                          return updated;
+                        });
+                        setDragRowIdx(null);
+                      }}
+                      onDragEnd={() => setDragRowIdx(null)}
+                      className={`transition-colors ${dragRowIdx === idx ? "opacity-40 bg-blue-50/50" : ""}`}
+                    >
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">
+                        <div className="flex items-center justify-center gap-1 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder row">
+                          <GripVertical className="h-3.5 w-3.5 text-[#a0a0ab] hover:text-blue-600 shrink-0" />
+                          <span>{idx + 1}</span>
+                        </div>
                       </td>
-                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">{idx + 1}</td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
                         <div className="relative min-w-[180px]">
                           <SearchBar
                             size="compact"
                             value={itemPickerIdx === idx ? itemSearch : row.item_description}
-                            onFocus={() => {
+                            onFocus={(e) => {
                               setItemPickerIdx(idx);
                               setItemSearch(row.item_description || "");
+                              setHighlightedIdx(0);
+                              e?.target?.select?.();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (filteredProducts.length > 0) {
+                                  const selected = filteredProducts[highlightedIdx] || filteredProducts[0];
+                                  if (selected) {
+                                    selectProductForRow(idx, selected);
+                                  }
+                                }
+                              } else if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setHighlightedIdx((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                              } else if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setHighlightedIdx((prev) => Math.max(prev - 1, 0));
+                              } else if (e.key === "Escape") {
+                                setItemPickerIdx(null);
+                              }
                             }}
                             onChange={(v) => {
                               setItemPickerIdx(idx);
                               setItemSearch(v);
+                              setHighlightedIdx(0);
                               updateItem(idx, "item_description", v);
                             }}
                             onBlur={() => {
@@ -1393,39 +1452,31 @@ export default function TaxInvoiceForm() {
                             className="w-full"
                           />
                           {itemPickerIdx === idx ? (
-                            <div className="absolute left-0 right-0 z-30 mt-1 max-h-48 overflow-y-auto rounded-md border border-[#d0d0d8] bg-white shadow-lg">
-                              {filteredProducts.length === 0 ? (
-                                <p className="px-3 py-2 text-[12px] text-[#8a8a95]">
-                                  No products found.{" "}
-                                  <button
-                                    type="button"
-                                    className="font-semibold"
-                                    style={{ color: ERP_PRIMARY }}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => setAddItemOpen(true)}
-                                  >
-                                    Add New Item
-                                  </button>
-                                </p>
-                              ) : (
-                                filteredProducts.map((p) => (
-                                  <button
-                                    key={p.id}
-                                    type="button"
-                                    className="block w-full px-3 py-2 text-left text-[12px] hover:bg-[#f7f7f9]"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => selectProductForRow(idx, p)}
-                                  >
-                                    <span className="font-semibold text-[#1a1a1f]">{p.name}</span>
-                                    <span className="mt-0.5 block text-[11px] text-[#8a8a95]">
-                                      {[p.sku, p.hsn_code ? `HSN ${p.hsn_code}` : null, p.current_stock != null ? `Stock ${p.current_stock}` : null]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                    </span>
-                                  </button>
-                                ))
-                              )}
-                            </div>
+                            <ItemPickerDropdown
+                              products={filteredProducts}
+                              selectedIndex={highlightedIdx}
+                              onSelectProduct={(p) => selectProductForRow(idx, p)}
+                              onAddNewItem={() => {
+                                setItemToEdit(null);
+                                setAddItemOpen(true);
+                              }}
+                              onEditItem={(p) => {
+                                setItemToEdit(p);
+                                setAddItemOpen(true);
+                              }}
+                              onToggleInactive={(p) => {
+                                setProducts((prev) =>
+                                  prev.map((item) =>
+                                    item.id === p.id
+                                      ? { ...item, status: item.status === "inactive" ? "active" : "inactive" }
+                                      : item
+                                  )
+                                );
+                              }}
+                              onDeleteItem={(p) => {
+                                setProducts((prev) => prev.filter((item) => item.id !== p.id));
+                              }}
+                            />
                           ) : null}
                         </div>
                       </td>
@@ -2063,7 +2114,11 @@ export default function TaxInvoiceForm() {
       />
       <AddNewItemModal
         open={addItemOpen}
-        onClose={() => setAddItemOpen(false)}
+        item={itemToEdit}
+        onClose={() => {
+          setAddItemOpen(false);
+          setItemToEdit(null);
+        }}
         onSaved={(line) => {
           if (!line) return;
           const gst = Number(line.gst_pct) || 0;

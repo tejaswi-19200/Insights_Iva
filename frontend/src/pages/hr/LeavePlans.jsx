@@ -263,11 +263,11 @@ export default function LeavePlans() {
       const [plansRes, assignedRes] = await Promise.all([getLeavePlans(), getAssignedLeavePlans()]);
       const planData = plansRes?.data || [];
       const asgData = assignedRes?.data || [];
-      setPlans(planData.length ? planData : SAMPLE_LEAVE_PLANS);
-      setAssigned(asgData.length ? asgData : SAMPLE_ASSIGNED_PLANS);
+      setPlans(planData);
+      setAssigned(asgData);
     } catch {
-      setPlans(SAMPLE_LEAVE_PLANS);
-      setAssigned(SAMPLE_ASSIGNED_PLANS);
+      setPlans([]);
+      setAssigned([]);
     } finally {
       setLoading(false);
     }

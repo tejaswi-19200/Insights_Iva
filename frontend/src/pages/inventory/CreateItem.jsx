@@ -27,6 +27,7 @@ const TABS = [
   { id: "tax", label: "Tax & Accounting" },
   { id: "inventory", label: "Inventory Details" },
   { id: "additional", label: "Additional Information" },
+  { id: "all", label: "All Sections" },
 ];
 
 const RAW_CATEGORIES = [
@@ -216,8 +217,10 @@ export default function CreateItem() {
 
   const goToTab = (id) => {
     setActiveTab(id);
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const formEl = document.getElementById("create-item-form");
+    if (formEl) {
+      formEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   const onImagePick = (e) => {
@@ -427,263 +430,299 @@ export default function CreateItem() {
       ) : null}
 
       <form id="create-item-form" onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-12">
-          <Card
-            id="basic"
-            title="1. Basic Information"
-            subtitle="Core item classification, names, codes, and identifiers"
-            className="xl:col-span-8"
-          >
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Item Classification" required>
-                <select
-                  value={form.item_type}
-                  onChange={(e) => {
-                    const t = e.target.value;
-                    setForm((f) => ({
-                      ...f,
-                      item_type: t,
-                      category: "",
-                      sku_suffix: "",
-                      base_unit: t === "raw_material" ? "KG" : "Pcs",
-                      purchase_unit: t === "raw_material" ? "KG" : "Pcs",
-                    }));
-                  }}
-                  className="ui-select w-full"
-                >
-                  <option value="raw_material">Raw Material (Input Component)</option>
-                  <option value="finished_good">Finished Good (Manufactured)</option>
-                </select>
-              </Field>
+        {/* Basic Information Section */}
+        <div className={`space-y-6 ${activeTab === "basic" || activeTab === "all" ? "" : "hidden"}`}>
+          <div className="grid gap-6 xl:grid-cols-12">
+            <Card
+              id="basic"
+              title="1. Basic Information"
+              subtitle="Core item classification, names, codes, and identifiers"
+              className="xl:col-span-8"
+            >
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Field label="Item Classification" required>
+                  <select
+                    value={form.item_type}
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      setForm((f) => ({
+                        ...f,
+                        item_type: t,
+                        category: "",
+                        sku_suffix: "",
+                        base_unit: t === "raw_material" ? "KG" : "Pcs",
+                        purchase_unit: t === "raw_material" ? "KG" : "Pcs",
+                      }));
+                    }}
+                    className="ui-select w-full"
+                  >
+                    <option value="raw_material">Raw Material (Input Component)</option>
+                    <option value="finished_good">Finished Good (Manufactured)</option>
+                  </select>
+                </Field>
 
-              <Field label="Item Category" required>
-                <select
-                  value={form.category}
-                  onChange={(e) => set("category", e.target.value)}
-                  className="ui-select w-full"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </Field>
+                <Field label="Item Category" required>
+                  <select
+                    value={form.category}
+                    onChange={(e) => set("category", e.target.value)}
+                    className="ui-select w-full"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
 
-              <Field label="Item Code / SKU" required hint="Auto-generated if left blank">
-                <div className="flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-teal-600 focus-within:ring-1 focus-within:ring-teal-600">
-                  <span className="flex items-center bg-slate-100 dark:bg-slate-800 px-3 text-[13px] font-bold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
-                    {skuPrefix}
-                  </span>
+                <Field label="Item Code / SKU" required hint="Auto-generated if left blank">
+                  <div className="flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-teal-600 focus-within:ring-1 focus-within:ring-teal-600">
+                    <span className="flex items-center bg-slate-100 dark:bg-slate-800 px-3 text-[13px] font-bold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
+                      {skuPrefix}
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1001"
+                      value={form.sku_suffix}
+                      onChange={(e) => set("sku_suffix", e.target.value)}
+                      className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-[13px] outline-none"
+                    />
+                  </div>
+                </Field>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <Field label="Item Name" required hint={isFinishedGood ? "e.g. Hydraulic Valve Assembly" : "e.g. Stainless Steel Rod 25mm"}>
                   <input
                     type="text"
-                    placeholder="e.g. 1001"
-                    value={form.sku_suffix}
-                    onChange={(e) => set("sku_suffix", e.target.value)}
-                    className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-[13px] outline-none"
+                    required
+                    placeholder={isFinishedGood ? "Enter finished product name" : "Enter raw material name"}
+                    value={form.name}
+                    onChange={(e) => set("name", e.target.value)}
+                    className="ui-input w-full"
                   />
-                </div>
-              </Field>
-            </div>
+                </Field>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <Field label="Item Name" required hint={isFinishedGood ? "e.g. Hydraulic Valve Assembly" : "e.g. Stainless Steel Rod 25mm"}>
-                <input
-                  type="text"
-                  required
-                  placeholder={isFinishedGood ? "Enter finished product name" : "Enter raw material name"}
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  className="ui-input w-full"
-                />
-              </Field>
+                <Field label="Description / Specs" hint="Material grade, tolerance, specifications">
+                  <textarea
+                    rows={2}
+                    placeholder="Enter specifications, technical grade, or description"
+                    value={form.description}
+                    onChange={(e) => set("description", e.target.value)}
+                    className="ui-textarea w-full min-h-[76px]"
+                  />
+                </Field>
+              </div>
 
-              <Field label="Description / Specs" hint="Material grade, tolerance, specifications">
-                <textarea
-                  rows={2}
-                  placeholder="Enter specifications, technical grade, or description"
-                  value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                  className="ui-textarea w-full min-h-[76px]"
-                />
-              </Field>
-            </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <Field label="HSN / SAC Code" hint="GST HSN classification code">
+                  <input
+                    type="text"
+                    placeholder="e.g. 7228 / 8481"
+                    value={form.hsn_sac}
+                    onChange={(e) => set("hsn_sac", e.target.value)}
+                    className="ui-input w-full"
+                  />
+                </Field>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <Field label="HSN / SAC Code" hint="GST HSN classification code">
-                <input
-                  type="text"
-                  placeholder="e.g. 7228 / 8481"
-                  value={form.hsn_sac}
-                  onChange={(e) => set("hsn_sac", e.target.value)}
-                  className="ui-input w-full"
-                />
-              </Field>
+                <Field label={isFinishedGood ? "Brand / Model" : "Brand / Grade"}>
+                  <input
+                    type="text"
+                    placeholder={isFinishedGood ? "e.g. Precision 2000" : "e.g. SS-304 / Grade A"}
+                    value={form.brand}
+                    onChange={(e) => set("brand", e.target.value)}
+                    className="ui-input w-full"
+                  />
+                </Field>
 
-              <Field label={isFinishedGood ? "Brand / Model" : "Brand / Grade"}>
-                <input
-                  type="text"
-                  placeholder={isFinishedGood ? "e.g. Precision 2000" : "e.g. SS-304 / Grade A"}
-                  value={form.brand}
-                  onChange={(e) => set("brand", e.target.value)}
-                  className="ui-input w-full"
-                />
-              </Field>
+                <Field label="Model / Part No." hint="Supplier part number or drawing ref">
+                  <input
+                    type="text"
+                    placeholder="e.g. DWG-2026-A"
+                    value={form.model_part_no}
+                    onChange={(e) => set("model_part_no", e.target.value)}
+                    className="ui-input w-full"
+                  />
+                </Field>
+              </div>
+            </Card>
 
-              <Field label="Model / Part No." hint="Supplier part number or drawing ref">
-                <input
-                  type="text"
-                  placeholder="e.g. DWG-2026-A"
-                  value={form.model_part_no}
-                  onChange={(e) => set("model_part_no", e.target.value)}
-                  className="ui-input w-full"
-                />
-              </Field>
-            </div>
-          </Card>
-
-          <Card id="item-image" title="Item Photo / Asset" subtitle="Optional visual preview" className="xl:col-span-4">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex min-h-[190px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-4 py-6 text-center transition-colors hover:border-teal-600 hover:bg-slate-100 dark:hover:bg-slate-800/70"
-            >
-              {imagePreview ? (
-                <img src={imagePreview} alt="Item preview" className="max-h-36 rounded-lg object-contain" />
-              ) : existingPhotoFileId ? (
-                <InventoryItemPhoto photoFileId={existingPhotoFileId} className="max-h-36 rounded-lg object-contain" />
-              ) : (
-                <>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white dark:bg-slate-700 text-slate-500 shadow-xs">
-                    <Upload className="h-5 w-5" />
-                  </span>
-                  <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Upload Photo</span>
-                  <span className="text-[11px] text-slate-400">PNG, JPG up to 2MB</span>
-                </>
-              )}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/png,image/jpeg,image/jpg"
-              className="hidden"
-              onChange={onImagePick}
-            />
-            {imagePreview ? (
+            <Card id="item-image" title="Item Photo / Asset" subtitle="Optional visual preview" className="xl:col-span-4">
               <button
                 type="button"
-                onClick={() => {
-                  if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
-                  setImagePreview(null);
-                  setPendingPhotoFile(null);
-                  if (fileRef.current) fileRef.current.value = "";
-                }}
-                className="mt-2 text-xs font-semibold text-red-600 hover:underline"
+                onClick={() => fileRef.current?.click()}
+                className="flex min-h-[190px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-4 py-6 text-center transition-colors hover:border-teal-600 hover:bg-slate-100 dark:hover:bg-slate-800/70"
               >
-                Clear selected photo
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Item preview" className="max-h-36 rounded-lg object-contain" />
+                ) : existingPhotoFileId ? (
+                  <InventoryItemPhoto photoFileId={existingPhotoFileId} className="max-h-36 rounded-lg object-contain" />
+                ) : (
+                  <>
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white dark:bg-slate-700 text-slate-500 shadow-xs">
+                      <Upload className="h-5 w-5" />
+                    </span>
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Upload Photo</span>
+                    <span className="text-[11px] text-slate-400">PNG, JPG up to 2MB</span>
+                  </>
+                )}
               </button>
-            ) : null}
-          </Card>
-        </div>
-
-        <div id="units-pricing" className="grid scroll-mt-28 gap-6 lg:grid-cols-2">
-          <Card title="2. Units & Measurement" subtitle="Define stock counting units and conversion ratios">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Base Unit (Stock UOM)" required hint="Standard warehouse counting unit">
-                <select
-                  value={form.base_unit}
-                  onChange={(e) => set("base_unit", e.target.value)}
-                  className="ui-select w-full"
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                className="hidden"
+                onChange={onImagePick}
+              />
+              {imagePreview ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+                    setImagePreview(null);
+                    setPendingPhotoFile(null);
+                    if (fileRef.current) fileRef.current.value = "";
+                  }}
+                  className="mt-2 text-xs font-semibold text-red-600 hover:underline"
                 >
-                  <option value="">Select Unit</option>
-                  {UNITS.map((u) => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>
-              </Field>
-
-              {isFinishedGood ? (
-                <Field label="Sales Unit" hint="Unit used on Tax Invoices & Sales Orders">
-                  <select
-                    value={form.sales_unit}
-                    onChange={(e) => set("sales_unit", e.target.value)}
-                    className="ui-select w-full"
-                  >
-                    <option value="">Select Unit</option>
-                    {UNITS.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                </Field>
-              ) : (
-                <Field label="Purchase Unit" hint="Unit used when purchasing from vendors">
-                  <select
-                    value={form.purchase_unit}
-                    onChange={(e) => set("purchase_unit", e.target.value)}
-                    className="ui-select w-full"
-                  >
-                    <option value="">Select Unit</option>
-                    {UNITS.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-
-              <Field label="Conversion Factor" required hint="1 Purchase Unit = ? Base Units">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.0001"
-                  value={form.conversion_factor}
-                  onChange={(e) => set("conversion_factor", e.target.value)}
-                  className="ui-input w-full"
-                />
-              </Field>
-            </div>
-          </Card>
-
-          <Card title="3. Valuation & Pricing" subtitle={isFinishedGood ? "Sales pricing and manufacturing valuation" : "Procurement cost and valuation"}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Purchase / Procurement Price (₹)" hint="Standard supplier purchase price per unit">
-                <ShorthandQuantityInput
-                  value={form.purchase_price}
-                  onChange={(val) => set("purchase_price", val)}
-                  placeholder="e.g. 500"
-                />
-              </Field>
-
-              <Field label="Standard Cost (₹)" hint="Cost used in BOM & valuation ledger">
-                <ShorthandQuantityInput
-                  value={form.standard_cost}
-                  onChange={(val) => set("standard_cost", val)}
-                  placeholder="e.g. 500"
-                />
-              </Field>
-
-              {isFinishedGood ? (
-                <>
-                  <Field label="Sales Price (₹)" hint="Default selling price before GST">
-                    <ShorthandQuantityInput
-                      value={form.sales_price}
-                      onChange={(val) => set("sales_price", val)}
-                      placeholder="e.g. 500"
-                    />
-                  </Field>
-
-                  <Field label="MRP (₹)" hint="Maximum Retail Price (if applicable)">
-                    <ShorthandQuantityInput
-                      value={form.mrp}
-                      onChange={(val) => set("mrp", val)}
-                      placeholder="e.g. 500"
-                    />
-                  </Field>
-                </>
+                  Clear selected photo
+                </button>
               ) : null}
+            </Card>
+          </div>
+          {activeTab !== "all" && (
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => goToTab("units-pricing")}
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 border border-teal-200 dark:border-teal-800/60 px-5 py-2.5 text-xs font-bold text-teal-700 dark:text-teal-300 transition-colors"
+              >
+                Next: Units & Pricing &rarr;
+              </button>
             </div>
-          </Card>
+          )}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Units & Pricing Section */}
+        <div className={`space-y-6 ${activeTab === "units-pricing" || activeTab === "all" ? "" : "hidden"}`}>
+          <div id="units-pricing" className="grid gap-6 lg:grid-cols-2">
+            <Card title="2. Units & Measurement" subtitle="Define stock counting units and conversion ratios">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Base Unit (Stock UOM)" required hint="Standard warehouse counting unit">
+                  <select
+                    value={form.base_unit}
+                    onChange={(e) => set("base_unit", e.target.value)}
+                    className="ui-select w-full"
+                  >
+                    <option value="">Select Unit</option>
+                    {UNITS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                {isFinishedGood ? (
+                  <Field label="Sales Unit" hint="Unit used on Tax Invoices & Sales Orders">
+                    <select
+                      value={form.sales_unit}
+                      onChange={(e) => set("sales_unit", e.target.value)}
+                      className="ui-select w-full"
+                    >
+                      <option value="">Select Unit</option>
+                      {UNITS.map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : (
+                  <Field label="Purchase Unit" hint="Unit used when purchasing from vendors">
+                    <select
+                      value={form.purchase_unit}
+                      onChange={(e) => set("purchase_unit", e.target.value)}
+                      className="ui-select w-full"
+                    >
+                      <option value="">Select Unit</option>
+                      {UNITS.map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+
+                <Field label="Conversion Factor" required hint="1 Purchase Unit = ? Base Units">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    value={form.conversion_factor}
+                    onChange={(e) => set("conversion_factor", e.target.value)}
+                    className="ui-input w-full"
+                  />
+                </Field>
+              </div>
+            </Card>
+
+            <Card title="3. Valuation & Pricing" subtitle={isFinishedGood ? "Sales pricing and manufacturing valuation" : "Procurement cost and valuation"}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Purchase / Procurement Price (₹)" hint="Standard supplier purchase price per unit">
+                  <ShorthandQuantityInput
+                    value={form.purchase_price}
+                    onChange={(val) => set("purchase_price", val)}
+                    placeholder="e.g. 500"
+                  />
+                </Field>
+
+                <Field label="Standard Cost (₹)" hint="Cost used in BOM & valuation ledger">
+                  <ShorthandQuantityInput
+                    value={form.standard_cost}
+                    onChange={(val) => set("standard_cost", val)}
+                    placeholder="e.g. 500"
+                  />
+                </Field>
+
+                {isFinishedGood ? (
+                  <>
+                    <Field label="Sales Price (₹)" hint="Default selling price before GST">
+                      <ShorthandQuantityInput
+                        value={form.sales_price}
+                        onChange={(val) => set("sales_price", val)}
+                        placeholder="e.g. 500"
+                      />
+                    </Field>
+
+                    <Field label="MRP (₹)" hint="Maximum Retail Price (if applicable)">
+                      <ShorthandQuantityInput
+                        value={form.mrp}
+                        onChange={(val) => set("mrp", val)}
+                        placeholder="e.g. 500"
+                      />
+                    </Field>
+                  </>
+                ) : null}
+              </div>
+            </Card>
+          </div>
+          {activeTab !== "all" && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => goToTab("basic")}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              >
+                &larr; Back: Basic Information
+              </button>
+              <button
+                type="button"
+                onClick={() => goToTab("tax")}
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 border border-teal-200 dark:border-teal-800/60 px-5 py-2.5 text-xs font-bold text-teal-700 dark:text-teal-300 transition-colors"
+              >
+                Next: Tax & Accounting &rarr;
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Tax & GST Details Section */}
+        <div className={`space-y-6 ${activeTab === "tax" || activeTab === "all" ? "" : "hidden"}`}>
           <Card id="tax" title="4. Tax & GST Details" subtitle="Tax rates for purchasing, job costing, and invoices">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="GST Rate (%)" required>
@@ -732,7 +771,28 @@ export default function CreateItem() {
               />
             </div>
           </Card>
+          {activeTab !== "all" && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => goToTab("units-pricing")}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              >
+                &larr; Back: Units & Pricing
+              </button>
+              <button
+                type="button"
+                onClick={() => goToTab("inventory")}
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 border border-teal-200 dark:border-teal-800/60 px-5 py-2.5 text-xs font-bold text-teal-700 dark:text-teal-300 transition-colors"
+              >
+                Next: Inventory Details &rarr;
+              </button>
+            </div>
+          )}
+        </div>
 
+        {/* Inventory Details Section */}
+        <div className={`space-y-6 ${activeTab === "inventory" || activeTab === "all" ? "" : "hidden"}`}>
           <Card id="inventory" title="5. Inventory & Stock Levels" subtitle="Opening stock, safety threshold, and reorder triggers">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Opening Available Stock" required hint="Current quantity ready on shelf">
@@ -780,53 +840,85 @@ export default function CreateItem() {
               </div>
             </div>
           </Card>
+          {activeTab !== "all" && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => goToTab("tax")}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              >
+                &larr; Back: Tax & Accounting
+              </button>
+              <button
+                type="button"
+                onClick={() => goToTab("additional")}
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 border border-teal-200 dark:border-teal-800/60 px-5 py-2.5 text-xs font-bold text-teal-700 dark:text-teal-300 transition-colors"
+              >
+                Next: Additional Information &rarr;
+              </button>
+            </div>
+          )}
         </div>
 
-        <Card id="additional" title="6. Additional Tracking" subtitle="Batch numbers, supplier references, and notes">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Batch / Lot Number" hint="Optional manufacturer lot/heat number">
-              <input
-                type="text"
-                placeholder="e.g. LOT-2026-08"
-                value={form.batch_number}
-                onChange={(e) => set("batch_number", e.target.value)}
-                className="ui-input w-full"
-              />
-            </Field>
-
-            <Field label="Serial Number" hint="Optional individual serial number">
-              <input
-                type="text"
-                placeholder="e.g. SN-8823"
-                value={form.serial_number}
-                onChange={(e) => set("serial_number", e.target.value)}
-                className="ui-input w-full"
-              />
-            </Field>
-
-            {isFinishedGood ? (
-              <Field label="Warranty Period">
+        {/* Additional Information Section */}
+        <div className={`space-y-6 ${activeTab === "additional" || activeTab === "all" ? "" : "hidden"}`}>
+          <Card id="additional" title="6. Additional Tracking" subtitle="Batch numbers, supplier references, and notes">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Batch / Lot Number" hint="Optional manufacturer lot/heat number">
                 <input
                   type="text"
-                  placeholder="e.g. 12 Months Replacement"
-                  value={form.warranty}
-                  onChange={(e) => set("warranty", e.target.value)}
+                  placeholder="e.g. LOT-2026-08"
+                  value={form.batch_number}
+                  onChange={(e) => set("batch_number", e.target.value)}
                   className="ui-input w-full"
                 />
               </Field>
-            ) : null}
 
-            <Field label="Notes / Supplier Remarks" className="sm:col-span-2 lg:col-span-3">
-              <textarea
-                rows={2}
-                placeholder="Add any internal remarks or storage requirements"
-                value={form.notes}
-                onChange={(e) => set("notes", e.target.value)}
-                className="ui-textarea w-full"
-              />
-            </Field>
-          </div>
-        </Card>
+              <Field label="Serial Number" hint="Optional individual serial number">
+                <input
+                  type="text"
+                  placeholder="e.g. SN-8823"
+                  value={form.serial_number}
+                  onChange={(e) => set("serial_number", e.target.value)}
+                  className="ui-input w-full"
+                />
+              </Field>
+
+              {isFinishedGood ? (
+                <Field label="Warranty Period">
+                  <input
+                    type="text"
+                    placeholder="e.g. 12 Months Replacement"
+                    value={form.warranty}
+                    onChange={(e) => set("warranty", e.target.value)}
+                    className="ui-input w-full"
+                  />
+                </Field>
+              ) : null}
+
+              <Field label="Notes / Supplier Remarks" className="sm:col-span-2 lg:col-span-3">
+                <textarea
+                  rows={2}
+                  placeholder="Add any internal remarks or storage requirements"
+                  value={form.notes}
+                  onChange={(e) => set("notes", e.target.value)}
+                  className="ui-textarea w-full"
+                />
+              </Field>
+            </div>
+          </Card>
+          {activeTab !== "all" && (
+            <div className="flex items-center justify-start pt-2">
+              <button
+                type="button"
+                onClick={() => goToTab("inventory")}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              >
+                &larr; Back: Inventory Details
+              </button>
+            </div>
+          )}
+        </div>
       </form>
 
       <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 -mb-28 z-20 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-6 py-4 shadow-xl backdrop-blur-md">

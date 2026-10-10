@@ -228,6 +228,7 @@ export default function ExportInvoiceForm() {
   const [products, setProducts] = useState([]);
   const [itemPickerIdx, setItemPickerIdx] = useState(null);
   const [itemSearch, setItemSearch] = useState("");
+  const [highlightedIdx, setHighlightedIdx] = useState(0);
   const [company, setCompany] = useState(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showBuyerPicker, setShowBuyerPicker] = useState(false);
@@ -309,6 +310,7 @@ export default function ExportInvoiceForm() {
     reverse_charge: false,
   });
   const [items, setItems] = useState([emptyItem(), emptyItem(), emptyItem()]);
+  const [dragRowIdx, setDragRowIdx] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -453,15 +455,16 @@ export default function ExportInvoiceForm() {
   const selectedBuyer = customers.find((c) => String(c.id) === String(form.customer_id));
 
   const filteredProducts = useMemo(() => {
-    if (!itemSearch.trim()) return products.slice(0, 30);
-    const q = itemSearch.toLowerCase();
+    const q = itemSearch.trim().toLowerCase();
+    const curDesc = (items[itemPickerIdx]?.item_description || "").trim().toLowerCase();
+    if (!q || (itemPickerIdx !== null && q === curDesc)) return products.slice(0, 30);
     return products.filter(
       (p) =>
         (p.name && p.name.toLowerCase().includes(q)) ||
         (p.sku && p.sku.toLowerCase().includes(q)) ||
         (p.hsn_code && p.hsn_code.toLowerCase().includes(q))
     ).slice(0, 30);
-  }, [products, itemSearch]);
+  }, [products, itemSearch, itemPickerIdx, items]);
 
   const prefixOptions = useMemo(() => {
     const set = new Set([
@@ -577,6 +580,7 @@ export default function ExportInvoiceForm() {
     });
     setItemPickerIdx(null);
     setItemSearch("");
+    setHighlightedIdx(0);
   };
 
   const updateItem = (idx, field, val) => {
@@ -1117,7 +1121,7 @@ export default function ExportInvoiceForm() {
             <table className="w-full min-w-[1180px] border-collapse text-left text-[12px]">
               <thead className="ui-table-head">
                 <tr>
-                  {["", "#", "Item Name", "HSN", "Qty", "Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
+                  {["S.No", "Item Name", "HSN", "Qty", "Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
                     (h, hi) => (
                       <th key={`${h}-${hi}`} className="whitespace-nowrap border-b border-r border-[#d0d0d8] px-2 py-2.5 font-semibold last:border-r-0">
                         {h}
@@ -1132,23 +1136,74 @@ export default function ExportInvoiceForm() {
                   const hasDesc = Boolean(row.item_description?.trim());
                   const gstValue = row.gst_option || gstOptionFromPct(row.gst_pct);
                   return (
-                    <tr key={idx}>
-                      <td className="border-b border-r border-[#d0d0d8] px-1.5 py-2 text-[#c4c4cc]">
-                        <GripVertical className="mx-auto h-4 w-4" />
+                    <tr
+                      key={idx}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragRowIdx(idx);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", String(idx));
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = dragRowIdx !== null ? dragRowIdx : parseInt(e.dataTransfer.getData("text/plain"), 10);
+                        if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                        setItems((prev) => {
+                          const updated = [...prev];
+                          const [removed] = updated.splice(sourceIdx, 1);
+                          updated.splice(idx, 0, removed);
+                          return updated;
+                        });
+                        setDragRowIdx(null);
+                      }}
+                      onDragEnd={() => setDragRowIdx(null)}
+                      className={`transition-colors ${dragRowIdx === idx ? "opacity-40 bg-blue-50/50" : ""}`}
+                    >
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">
+                        <div className="flex items-center justify-center gap-1 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder row">
+                          <GripVertical className="h-3.5 w-3.5 text-[#a0a0ab] hover:text-blue-600 shrink-0" />
+                          <span>{idx + 1}</span>
+                        </div>
                       </td>
-                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">{idx + 1}</td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
                         <div className="relative min-w-[180px]">
                           <SearchBar
                             size="compact"
                             value={itemPickerIdx === idx ? itemSearch : row.item_description}
-                            onFocus={() => {
+                            onFocus={(e) => {
                               setItemPickerIdx(idx);
                               setItemSearch(row.item_description || "");
+                              setHighlightedIdx(0);
+                              e?.target?.select?.();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (filteredProducts.length > 0) {
+                                  const selected = filteredProducts[highlightedIdx] || filteredProducts[0];
+                                  if (selected) {
+                                    selectProductForRow(idx, selected);
+                                  }
+                                }
+                              } else if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setHighlightedIdx((prev) => Math.min(prev + 1, Math.max(0, filteredProducts.length - 1)));
+                              } else if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setHighlightedIdx((prev) => Math.max(prev - 1, 0));
+                              } else if (e.key === "Escape") {
+                                setItemPickerIdx(null);
+                              }
                             }}
                             onChange={(v) => {
                               setItemPickerIdx(idx);
                               setItemSearch(v);
+                              setHighlightedIdx(0);
                               updateItem(idx, "item_description", v);
                             }}
                             onBlur={() => {
@@ -1176,11 +1231,13 @@ export default function ExportInvoiceForm() {
                                   </button>
                                 </p>
                               ) : (
-                                filteredProducts.map((p) => (
+                                filteredProducts.map((p, pIdx) => (
                                   <button
                                     key={p.id}
                                     type="button"
-                                    className="block w-full px-3 py-2 text-left text-[12px] hover:bg-[#f7f7f9] cursor-pointer"
+                                    className={`block w-full px-3 py-2 text-left text-[12px] cursor-pointer transition-colors ${
+                                      pIdx === highlightedIdx ? "bg-blue-50 text-blue-900 font-medium" : "hover:bg-[#f7f7f9]"
+                                    }`}
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => selectProductForRow(idx, p)}
                                   >
