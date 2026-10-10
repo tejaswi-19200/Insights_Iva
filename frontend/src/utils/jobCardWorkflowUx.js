@@ -21,6 +21,7 @@ export function getJobCardWorkflowGuidance({
   row = null,
   storeMode = false,
   productionMode = false,
+  materialCheckTargetId = "manual-material-check-panel",
 } = {}) {
   const src = card || row || {};
   const ws = String(src.workflow_status || "").toUpperCase();
@@ -39,7 +40,7 @@ export function getJobCardWorkflowGuidance({
         message:
           "Check required materials against live inventory. Saving the material check does not send the job card anywhere.",
         nextStep: "Complete Material Availability Check below, then save your result.",
-        scrollToId: "manual-material-check-panel",
+        scrollToId: materialCheckTargetId,
         actionLabel: "Go to Material Check",
       };
     }

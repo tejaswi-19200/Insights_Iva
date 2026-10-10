@@ -68,6 +68,9 @@ export default function JobCardDetailsShell({
   onPatchRawMaterial = null,
   onAddRawMaterial = null,
   onRemoveRawMaterial = null,
+  productionDetailsEditable = false,
+  onSaveProductionDetails = null,
+  savingProductionDetails = false,
   audit = null,
 }) {
   const navigate = useNavigate();
@@ -75,6 +78,10 @@ export default function JobCardDetailsShell({
   const [productionOrder, setProductionOrder] = useState(null);
   const [companyProfile, setCompanyProfile] = useState(null);
   const [showProduction, setShowProduction] = useState(false);
+
+  useEffect(() => {
+    if (productionDetailsEditable) setShowProduction(true);
+  }, [productionDetailsEditable]);
 
   const summary = card?.summary_panel || {};
   const storeContext = card?.store_context;
@@ -246,7 +253,7 @@ export default function JobCardDetailsShell({
           Edit
         </Button>
       ) : null}
-      {storeMode
+      {storeMode && !stageActions
         ? storeActionItems.map((item) => (
             <Button
               key={item.key}
@@ -269,7 +276,7 @@ export default function JobCardDetailsShell({
       <Button variant="secondary" size="sm" onClick={handleDownloadSalesPdf} leftIcon={<Download className="h-4 w-4" aria-hidden />}>
         Download PDF
       </Button>
-      {isCreated ? (
+      {isCreated && !(storeMode && stageActions) ? (
         <Button variant="secondary" size="sm" onClick={handlePrintProduction} title="Production job card">
           Production Print
         </Button>
@@ -334,7 +341,13 @@ export default function JobCardDetailsShell({
                   details={details || card?.details}
                   errors={errors}
                   editableSections={editableSections}
-                  readOnly={isEdit ? readOnly && !canEditDetails : true}
+                  readOnly={
+                    productionDetailsEditable
+                      ? false
+                      : isEdit
+                        ? readOnly && !canEditDetails
+                        : true
+                  }
                   machines={machines}
                   operators={salesPeople}
                   uom={form?.unit || "Nos"}
@@ -346,6 +359,18 @@ export default function JobCardDetailsShell({
                   onAddRawMaterial={onAddRawMaterial}
                   onRemoveRawMaterial={onRemoveRawMaterial}
                 />
+                {productionDetailsEditable ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--color-border-soft)] p-3">
+                    <Button
+                      variant="add"
+                      size="sm"
+                      loading={savingProductionDetails}
+                      onClick={onSaveProductionDetails}
+                    >
+                      Save Production Job Card
+                    </Button>
+                  </div>
+                ) : null}
                 {isEdit && canEditDetails ? (
                   <div className="flex flex-wrap gap-2 border-t border-[var(--color-border-soft)] p-3">
                     <Button variant="secondary" size="sm" onClick={handlePrintProduction}>
@@ -377,7 +402,7 @@ export default function JobCardDetailsShell({
         </div>
       ) : null}
 
-      {storeMode && storeContext?.material_requirements?.length ? (
+      {storeMode && !stageActions && storeContext?.material_requirements?.length ? (
         <div className="job-card-page__below print:hidden">
           <StoreManagerJobCardPanel
             orderId={orderId}

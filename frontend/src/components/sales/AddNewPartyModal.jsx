@@ -525,20 +525,6 @@ export default function AddNewPartyModal({
     }
     setSaving(true);
     try {
-      const extraNotes = [
-        basicDetails?.payment_terms_days
-          ? `Payment Terms: ${basicDetails.payment_terms_days} Days`
-          : "",
-        basicDetails?.balance_type
-          ? `Balance: ${basicDetails.balance_type === "to_pay" ? "To Pay" : "To Receive"}`
-          : "",
-        otherDetails?.party_type ? `Party type: ${otherDetails.party_type}` : "",
-        otherDetails?.gst_treatment ? `GST Treatment: ${otherDetails.gst_treatment}` : "",
-        ...customFields.map((f) => `${f.label}: ${f.value}`),
-      ]
-        .filter(Boolean)
-        .join(" | ");
-
       const opening = basicDetails?.opening_balance
         ? Number(basicDetails.opening_balance)
         : Number(party?.outstanding || 0);
@@ -553,9 +539,7 @@ export default function AddNewPartyModal({
           phone: form.phone.trim(),
           email,
           address_line1: address.address_line1 || null,
-          address_line2:
-            [address.city, address.state, address.pincode, extraNotes].filter(Boolean).join(", ") ||
-            null,
+          address_line2: null,
           city: address.city || null,
           state: address.state || null,
           pincode: address.pincode || null,
@@ -600,9 +584,7 @@ export default function AddNewPartyModal({
         phone: form.phone.trim() || null,
         email: basicDetails?.email?.trim() || party?.email || null,
         address_line1: address.address_line1 || null,
-        address_line2:
-          [address.city, address.state, address.pincode, extraNotes].filter(Boolean).join(", ") ||
-          null,
+        address_line2: null,
         city: address.city || null,
         pincode: address.pincode || null,
         state: address.state || null,

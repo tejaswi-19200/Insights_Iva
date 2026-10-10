@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Check, CheckCircle2, Eye, RefreshCw, Search, XCircle } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
 import AccessDenied from "../../components/admin/AccessDenied";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import Pagination from "../../components/common/Pagination";
+import RowActionMenu from "../../components/common/RowActionMenu";
 import usePermissions from "../../hooks/usePermissions";
 import { userCanAccessApprovalQueue } from "../../config/permissions";
 import usePageRefresh from "../../hooks/usePageRefresh";
@@ -58,6 +60,7 @@ function apiErrorMessage(err, fallback) {
 }
 
 export default function PendingApprovals() {
+  const navigate = useNavigate();
   const { user } = usePermissions();
   const allowed = userCanAccessApprovalQueue(user);
   const { addToast } = useToast();
@@ -205,6 +208,7 @@ export default function PendingApprovals() {
 
   const handleConfirmApprove = async () => {
     if (!approveTarget) return;
+    const approvedMaterialRequest = approveTarget.resource_type === "material_request";
     setActionLoading(true);
     try {
       await runDecision(approveTarget, true);
@@ -216,6 +220,9 @@ export default function PendingApprovals() {
       setApproveTarget(null);
       setSelectedDetail(null);
       refreshAfterAction();
+      if (approvedMaterialRequest) {
+        navigate("/procurement/material-requests?kpi=approved");
+      }
     } catch (err) {
       addToast(
         apiErrorMessage(
@@ -527,33 +534,38 @@ export default function PendingApprovals() {
 }
 
 function RowActions({ item, onView, onApprove, onReject }) {
-  if ((item.status || "").toLowerCase() !== "pending" && item.category !== "purchase_order") {
-    return (
-      <button type="button" className="text-xs text-[var(--color-primary)]" onClick={onView}>
-        View
-      </button>
-    );
-  }
   const isDraftPo = item.resource_type === "purchase_order" && item.status === "draft";
   const canAct = item.status === "pending" || isDraftPo;
-  if (!canAct) {
-    return (
-      <button type="button" className="text-xs text-[var(--color-primary)]" onClick={onView}>
-        View
-      </button>
-    );
-  }
+  const items = [
+    {
+      label: "View",
+      icon: <Eye className="h-4 w-4" aria-hidden />,
+      onClick: onView,
+    },
+    ...(canAct
+      ? [
+          {
+            label: "Approve",
+            icon: <Check className="h-4 w-4" aria-hidden />,
+            onClick: onApprove,
+          },
+          {
+            label: "Reject",
+            icon: <XCircle className="h-4 w-4" aria-hidden />,
+            danger: true,
+            onClick: onReject,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div className="flex justify-end gap-2">
-      <button type="button" className="text-xs font-semibold text-[var(--color-primary)]" onClick={onView}>
-        View
-      </button>
-      <button type="button" className="text-xs font-semibold text-emerald-600" onClick={onApprove}>
-        Approve
-      </button>
-      <button type="button" className="text-xs font-semibold text-rose-600" onClick={onReject}>
-        Reject
-      </button>
+    <div className="flex justify-end">
+      <RowActionMenu
+        rowId={`${item.category}-${item.id}`}
+        items={items}
+        ariaLabel={`Actions for ${item.request_code || item.title || "approval request"}`}
+      />
     </div>
   );
 }

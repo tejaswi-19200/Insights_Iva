@@ -506,6 +506,14 @@
   padding: 0.2rem 0.35rem;
 }
 
+.sjc-doc--display .smjc-doc__material-wrap {
+  overflow-x: auto;
+}
+
+.sjc-doc--display .smjc-doc__material-table {
+  min-width: 900px;
+}
+
 .smjc-doc__notes-columns {
   margin-bottom: 0.45rem;
 }

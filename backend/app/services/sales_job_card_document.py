@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -18,14 +19,28 @@ def _fmt_date(value) -> str | None:
 def _customer_address(customer) -> str:
     if not customer:
         return ""
-    parts = [
+    metadata_start = re.compile(
+        r"(?:^|,\s*|\|\s*)(?:Payment Terms|Balance|Party type|GST Treatment):",
+        re.IGNORECASE,
+    )
+    candidates = [
         customer.address_line1,
         customer.address_line2,
         customer.city,
         customer.state,
         customer.pincode,
     ]
-    return ", ".join(p for p in parts if p)
+    parts: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        cleaned = metadata_start.split(str(candidate or ""), maxsplit=1)[0]
+        for part in re.split(r"[,\r\n]+", cleaned):
+            value = part.strip()
+            key = re.sub(r"[^a-z0-9]", "", value.casefold())
+            if key and key not in seen:
+                seen.add(key)
+                parts.append(value)
+    return ", ".join(parts)
 
 
 def _append_spec(specs: list[dict[str, Any]], parameter: str, specification: Any) -> None:

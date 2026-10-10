@@ -161,6 +161,9 @@ export default function StoreManagerJobCardDocumentPanel({
         card: manualCard || card,
         row,
         storeMode: true,
+        materialCheckTargetId: isManual
+          ? "manual-material-check-panel"
+          : "sales-order-material-check-panel",
       });
   const canSendJobCard =
     !orderCancelled &&

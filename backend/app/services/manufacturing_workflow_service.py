@@ -32,7 +32,10 @@ from app.services.inventory_service import (
     get_total_stock,
     record_stock_movement,
 )
-from app.services.procurement_service import create_material_request
+from app.services.procurement_service import (
+    create_material_request,
+    next_material_request_number,
+)
 
 
 def _product_requires_bom(product: Product | None) -> bool:
@@ -278,8 +281,7 @@ def run_mrp(
     mr_number = None
 
     if create_purchase_request and shortages:
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        mr_number = f"MR-MRP-{ts}"
+        mr_number = next_material_request_number(db, tenant_id)
         lines = [
             MaterialRequestLineCreate(
                 item_id=s["item_id"],
@@ -2130,4 +2132,3 @@ def list_role_workflow_board(db: Session, tenant_id: int, user, *, limit: int = 
         "role_stages": my_catalog,
         "orders": items,
     }
-

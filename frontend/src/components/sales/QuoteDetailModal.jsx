@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { Download, Mail, Printer, X } from "lucide-react";
 
 import { convertQuotationToSalesOrder, downloadQuotationPdf, getQuotation } from "../../api/salesApi";
@@ -199,10 +200,15 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between border-b px-5 py-4">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Quotation ${quote.quote_number}`}
+    >
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex shrink-0 items-start justify-between border-b px-5 py-4">
           <div>
             <p className="text-xs font-semibold text-[var(--color-primary)]">{quote.quote_number}</p>
             <h2 className="text-xl font-bold text-slate-900">{quote.customer_name || "Customer"}</h2>
@@ -215,7 +221,7 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <dl className="mb-4 grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-xs uppercase text-slate-400">Quote date</dt>
@@ -274,7 +280,7 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 border-t px-5 py-4 print:hidden">
+        <div className="flex shrink-0 flex-wrap gap-2 border-t px-5 py-4 print:hidden">
           <button type="button" onClick={handlePreview} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-4 w-4" /> Preview
           </button>
@@ -336,6 +342,7 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

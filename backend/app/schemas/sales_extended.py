@@ -26,6 +26,8 @@ class LeadListRead(BaseModel):
     opportunity_value: float | None = Field(None, ge=0.0)
     industry: str | None = None
     region: str | None = None
+    quotation_id: int | None = None
+    quotation_number: str | None = None
 
     @field_validator("opportunity_value", mode="before")
     @classmethod

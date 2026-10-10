@@ -8,6 +8,7 @@ import { computeLineTotals } from "../../utils/jobCardLineTotals";
 import {
   buildSalesJobCardDocument,
   formatCompanyAddress,
+  formatCustomerAddress,
   fmtDate,
   resolveCompanyLogoUrl,
   resolveCompanyTagline,
@@ -156,7 +157,10 @@ export default function SalesJobCardDocument({
                 <FieldRow label="Contact Person" value={cust.contact_person} />
                 <FieldRow label="Phone" value={cust.phone} />
                 <FieldRow label="Email" value={cust.email} />
-                <FieldRow label="Billing Address" value={cust.billing_address} />
+                <FieldRow
+                  label="Billing Address"
+                  value={formatCustomerAddress({ billing_address: cust.billing_address })}
+                />
               </>
             )}
           </SectionPanel>

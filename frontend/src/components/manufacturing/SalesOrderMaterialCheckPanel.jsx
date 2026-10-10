@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, XCircle } from "lucide-react";
 
 import Button from "../common/Button";
 import CommonStatusBadge from "../common/StatusBadge";
 import { LoadingState } from "../common/states";
-import { getMaterialCheck, submitMaterialCheck } from "../../api/workflowApi";
+import {
+  getMaterialCheck,
+  raiseMaterialRequest,
+  submitMaterialCheck,
+} from "../../api/workflowApi";
 import ConcurrencyConflictBanner from "../common/ConcurrencyConflictBanner";
 import { apiErrorMessage, conflictErrorMessage, isConflictError } from "../../utils/apiError";
 import { useToast } from "../../context/ToastContext";
@@ -37,6 +42,16 @@ function overallPreview(lines) {
   return { tone: "danger", label: "Materials not available", icon: XCircle };
 }
 
+function hasMaterialShortage(data) {
+  const workflowStatus = String(data?.workflow_status || "").toUpperCase();
+  const checkStatus = String(data?.material_check?.status || "").toLowerCase();
+  return (
+    ["MATERIAL_SHORTAGE", "MATERIAL_PARTIAL"].includes(workflowStatus) ||
+    ["shortage", "partial"].includes(checkStatus) ||
+    (data?.material_check?.lines || []).some((line) => Number(line.shortage_qty || 0) > 0)
+  );
+}
+
 export default function SalesOrderMaterialCheckPanel({
   orderId,
   workflowStatus = "",
@@ -44,8 +59,10 @@ export default function SalesOrderMaterialCheckPanel({
   onUpdated,
 }) {
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState("");
   const [error, setError] = useState("");
   const [lines, setLines] = useState([]);
   const [notes, setNotes] = useState("");
@@ -91,6 +108,40 @@ export default function SalesOrderMaterialCheckPanel({
   const needsNotesForShortage =
     canEdit && !isCompleted && lines.some((ln) => Number(ln.shortage_qty || 0) > 0);
 
+  const createShortageRequestAndNavigate = async (data, fallbackLines = []) => {
+    const hasSavedCheck = data?.workflow_status != null || data?.material_check != null;
+    const hasShortage =
+      hasMaterialShortage(data) ||
+      (!hasSavedCheck && fallbackLines.some((line) => Number(line.shortage_qty || 0) > 0));
+    if (!hasShortage) return false;
+    try {
+      const res = await raiseMaterialRequest(orderId, {
+        notes: notes.trim() || null,
+      });
+      const request = res?.data ?? res;
+      const requestLabel =
+        request?.material_request_number || request?.material_request_id;
+      addToast(
+        `Purchase requisition${requestLabel ? ` ${requestLabel}` : ""} created for the material shortage.`,
+        "success"
+      );
+      onUpdated?.(data);
+      navigate("/procurement/material-requests");
+      return true;
+    } catch (err) {
+      addToast(
+        `Material check saved, but the purchase requisition could not be created: ${apiErrorMessage(
+          err,
+          "Please retry from the material check."
+        )}`,
+        "error"
+      );
+      await load();
+      onUpdated?.(data);
+      return true;
+    }
+  };
+
   const handleSave = async () => {
     if (!orderId || saving || !canEdit || isCompleted) return;
     if (needsNotesForShortage && !notes.trim()) {
@@ -98,6 +149,7 @@ export default function SalesOrderMaterialCheckPanel({
       return;
     }
     setSaving(true);
+    setSavingAction("save");
     setConflictMessage("");
     try {
       const res = await submitMaterialCheck(orderId, {
@@ -108,8 +160,9 @@ export default function SalesOrderMaterialCheckPanel({
         })),
       });
       const data = res?.data ?? res;
+      if (await createShortageRequestAndNavigate(data, lines)) return;
       addToast(
-        "Material check saved. Stock was not deducted — issue materials separately when ready.",
+        "Material check saved. All required materials are available.",
         "success"
       );
       if (data?.material_check) {
@@ -129,12 +182,14 @@ export default function SalesOrderMaterialCheckPanel({
       addToast(apiErrorMessage(err, "Could not save material check."), "error");
     } finally {
       setSaving(false);
+      setSavingAction("");
     }
   };
 
   const handleRecheck = async () => {
     if (!orderId || saving || !canRecheck) return;
     setSaving(true);
+    setSavingAction("recheck");
     setConflictMessage("");
     try {
       const res = await submitMaterialCheck(orderId, {});
@@ -143,9 +198,9 @@ export default function SalesOrderMaterialCheckPanel({
       if (nextStatus === "STORE_ISSUE_PENDING") {
         addToast("All materials are available. The order is ready for Store Issue.", "success");
       } else if (nextStatus === "MATERIAL_PARTIAL") {
-        addToast("Stock rechecked. Some materials are still short.", "info");
+        addToast("Stock rechecked. Some materials are still short; create a purchase requisition when needed.", "info");
       } else {
-        addToast("Stock rechecked. Materials are still unavailable.", "info");
+        addToast("Stock rechecked. Materials are still unavailable; create a purchase requisition when needed.", "info");
       }
       await load();
       onUpdated?.(data);
@@ -158,6 +213,22 @@ export default function SalesOrderMaterialCheckPanel({
       addToast(apiErrorMessage(err, "Could not recheck material availability."), "error");
     } finally {
       setSaving(false);
+      setSavingAction("");
+    }
+  };
+
+  const handleCreatePurchaseRequest = async () => {
+    if (!orderId || saving) return;
+    setSaving(true);
+    setSavingAction("request");
+    try {
+      await createShortageRequestAndNavigate({
+        workflow_status: ws,
+        material_check: checkMeta,
+      });
+    } finally {
+      setSaving(false);
+      setSavingAction("");
     }
   };
 
@@ -319,13 +390,13 @@ export default function SalesOrderMaterialCheckPanel({
             />
           </label>
           <div className="store-manual-jc-actions__toolbar">
-            <Button variant="primary" size="sm" loading={saving} disabled={saving} onClick={handleSave}>
-              {saving ? "Saving Material Check…" : "Save Material Check"}
+            <Button variant="primary" size="sm" loading={savingAction === "save"} disabled={saving} onClick={handleSave}>
+              {savingAction === "save" ? "Saving Material Check…" : "Save Material Check"}
             </Button>
           </div>
           <p className="store-manual-jc-actions__hint" role="note">
-            Quantities reflect live inventory. Saving records availability only — it does not issue stock or
-            send the order to production.
+            Quantities reflect live inventory. Saving creates a purchase requisition for shortages; it does not
+            issue stock or send the order to production.
           </p>
         </div>
       ) : null}
@@ -339,11 +410,14 @@ export default function SalesOrderMaterialCheckPanel({
           {checkMeta.notes ? <p><strong>Notes:</strong> {checkMeta.notes}</p> : null}
           {canRecheck ? (
             <div className="store-manual-jc-actions__toolbar mt-3">
-              <Button variant="primary" size="sm" loading={saving} disabled={saving} onClick={handleRecheck}>
-                {saving ? "Rechecking Stock…" : "Recheck Stock"}
+              <Button variant="primary" size="sm" loading={savingAction === "request"} disabled={saving} onClick={handleCreatePurchaseRequest}>
+                {savingAction === "request" ? "Creating Purchase Requisition…" : "Create Purchase Requisition"}
+              </Button>
+              <Button variant="secondary" size="sm" loading={savingAction === "recheck"} disabled={saving} onClick={handleRecheck}>
+                {savingAction === "recheck" ? "Rechecking Stock…" : "Recheck Stock"}
               </Button>
               <p className="store-manual-jc-actions__hint" role="note">
-                Refresh availability after receiving the requested materials into inventory.
+                Create a requisition for the shortage, or recheck availability after materials are received.
               </p>
             </div>
           ) : null}

@@ -523,7 +523,7 @@ export default function Quotations() {
                           }
                         : r.converted_to_so && r.converted_sales_order_number
                           ? {
-                              label: `Converted — ${r.converted_sales_order_number}`,
+                              label: "Converted",
                               disabled: true,
                             }
                           : null,
@@ -679,7 +679,7 @@ export default function Quotations() {
                                 }
                               : r.converted_to_so && r.converted_sales_order_number
                                 ? {
-                                    label: `Converted — ${r.converted_sales_order_number}`,
+                                    label: "Converted",
                                     disabled: true,
                                   }
                                 : null,

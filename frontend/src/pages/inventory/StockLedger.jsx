@@ -82,20 +82,6 @@ function formatDateParts(value) {
   };
 }
 
-function dateISO(offset = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function oneYearFromTodayISO() {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() + 1);
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 function displayDate(value) {
   if (!value) return "";
   const [year, month, day] = value.split("-");
@@ -151,8 +137,8 @@ export default function StockLedger({ variant = "" }) {
   const [entries, setEntries] = useState([]);
   const [warehousesApi, setWarehousesApi] = useState([]);
   const [filters, setFilters] = useState({
-    dateFrom: dateISO(),
-    dateTo: oneYearFromTodayISO(),
+    dateFrom: "",
+    dateTo: "",
     warehouse: "",
     item: "",
     type: "",
@@ -303,8 +289,8 @@ export default function StockLedger({ variant = "" }) {
   const clearFilters = () => {
     setSearch("");
     setFilters({
-      dateFrom: dateISO(),
-      dateTo: oneYearFromTodayISO(),
+      dateFrom: "",
+      dateTo: "",
       warehouse: "",
       item: "",
       type: "",
@@ -620,21 +606,23 @@ export default function StockLedger({ variant = "" }) {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <ClickableKpiCard
-          onClick={() => setFilters((f) => ({ ...f, type: "in" }))}
-          title="Filter stock in transactions"
-          tone="success"
-        >
-          <KpiCard
-            label="Total Stock In"
-            value={formatQtyByUnit(kpis.stock_in)}
-            icon={ArrowDownToLine}
+      <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${todaysStockOutMode ? "xl:grid-cols-4" : "xl:grid-cols-5"}`}>
+        {!todaysStockOutMode ? (
+          <ClickableKpiCard
+            onClick={() => setFilters((f) => ({ ...f, type: "in" }))}
+            title="Filter stock in transactions"
             tone="success"
-            meta="Click to filter"
-            className="[&_.ui-kpi__value]:!text-[#16a34a]"
-          />
-        </ClickableKpiCard>
+          >
+            <KpiCard
+              label="Total Stock In"
+              value={formatQtyByUnit(kpis.stock_in)}
+              icon={ArrowDownToLine}
+              tone="success"
+              meta="Click to filter"
+              className="[&_.ui-kpi__value]:!text-[#16a34a]"
+            />
+          </ClickableKpiCard>
+        ) : null}
         <ClickableKpiCard
           onClick={() => setFilters((f) => ({ ...f, type: "out" }))}
           title="Filter stock out transactions"

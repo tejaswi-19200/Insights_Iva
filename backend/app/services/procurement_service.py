@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.inventory import Supplier
@@ -14,6 +14,7 @@ from app.models.procurement import (
     PurchaseOrderLine,
     SupplierPayment,
 )
+from app.models.material_pricing import MaterialPricing
 from app.schemas.procurement import (
     GoodsReceiptCreate,
     GoodsReceiptQCRequest,
@@ -24,6 +25,18 @@ from app.schemas.procurement import (
 )
 from app.schemas.inventory import StockMovementCreate
 from app.services.inventory_service import record_stock_movement
+
+
+def next_material_request_number(db: Session, tenant_id: int) -> str:
+    request_count = int(
+        db.scalar(
+            select(func.count(MaterialRequest.id)).where(
+                MaterialRequest.tenant_id == tenant_id
+            )
+        )
+        or 0
+    )
+    return f"PR-{date.today().year}-{request_count + 1:04d}"
 
 
 def update_purchase_order_status(
@@ -357,7 +370,12 @@ def convert_material_request_to_purchase_order(
     if not supplier:
         raise HTTPException(404, "Supplier not found")
 
-    unit_price = float(payload.unit_price or 0)
+    unit_price_override = (
+        float(payload.unit_price)
+        if payload.unit_price is not None and float(payload.unit_price) > 0
+        else None
+    )
+    line_item_prices = payload.line_item_prices or {}
     po_payload = PurchaseOrderCreate(
         tenant_id=tenant_id,
         supplier_id=payload.supplier_id,
@@ -371,7 +389,19 @@ def convert_material_request_to_purchase_order(
             {
                 "item_id": int(line.item_id),
                 "quantity": float(line.quantity),
-                "unit_price": unit_price,
+                "unit_price": _material_request_line_purchase_price(
+                    db,
+                    tenant_id,
+                    payload.supplier_id,
+                    line,
+                    override=(
+                        float(line_item_prices[str(line.item_id)])
+                        if str(line.item_id) in line_item_prices
+                        else float(line_item_prices[line.item_id])
+                        if line.item_id in line_item_prices
+                        else unit_price_override
+                    ),
+                ),
             }
             for line in mr.line_items
         ],
@@ -404,6 +434,34 @@ def convert_material_request_to_purchase_order(
             pass
 
     return po
+
+
+def _material_request_line_purchase_price(
+    db: Session,
+    tenant_id: int,
+    supplier_id: int,
+    line: MaterialRequestLine,
+    *,
+    override: float | None,
+) -> float:
+    if override is not None:
+        return max(0.0, override)
+
+    vendor_price = db.scalar(
+        select(MaterialPricing.purchase_price).where(
+            MaterialPricing.tenant_id == tenant_id,
+            MaterialPricing.supplier_id == supplier_id,
+            MaterialPricing.inventory_item_id == line.item_id,
+            MaterialPricing.is_active.is_(True),
+        )
+    )
+    if vendor_price is not None and float(vendor_price) > 0:
+        return float(vendor_price)
+
+    item = line.item
+    if item and item.unit_cost is not None:
+        return max(0.0, float(item.unit_cost))
+    return 0.0
 
 
 def approve_material_request(

@@ -408,7 +408,7 @@ export default function CreatePurchaseOrder() {
                     item_id: it.item_id,
                     item_description: inv?.name || inv?.item_name || `Item #${it.item_id}`,
                     qty: it.qty ?? it.quantity ?? "",
-                    unit: inv?.unit || "pcs",
+                    unit: it.item_unit || inv?.unit || "pcs",
                     rate: it.rate ?? it.unit_price ?? "",
                   });
                 })
@@ -898,6 +898,9 @@ export default function CreatePurchaseOrder() {
                           className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1 py-1.5"
                         >
                           <option value="">Unit</option>
+                          {row.unit && !["pcs", "KGS", "MT"].includes(row.unit) ? (
+                            <option value={row.unit}>{row.unit}</option>
+                          ) : null}
                           <option value="pcs">pcs</option>
                           <option value="KGS">KGS</option>
                           <option value="MT">MT</option>

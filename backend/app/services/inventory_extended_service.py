@@ -740,7 +740,10 @@ def list_ledger_entries(
                 batch_number=m.batch_number,
                 qty_in=qty_in,
                 qty_out=qty_out,
-                balance=new_bal,
+                # Legacy movements can begin with an outbound transaction
+                # before an opening balance exists. Keep the API response
+                # valid while the ledger reports the signed movement itself.
+                balance=max(0.0, new_bal),
                 user_name=m.created_by or "System",
                 reference=m.reference,
             )

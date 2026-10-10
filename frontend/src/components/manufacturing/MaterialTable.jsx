@@ -25,7 +25,10 @@ export default function MaterialTable({ columns, rows, editable = false, onChang
                 const val = row[col.key];
                 if (editable && col.editable) {
                   const isNum = col.type === "number";
-                  const displayVal = isNum && (val === 0 || val === "0" || val == null) ? "" : String(val);
+                  const displayVal =
+                    isNum && !col.showZero && (val === 0 || val === "0" || val == null)
+                      ? ""
+                      : String(val ?? "");
                   return (
                     <td key={col.key} className="px-3 py-2">
                       <input

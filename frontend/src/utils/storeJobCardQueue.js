@@ -17,6 +17,24 @@ export const STORE_STATUS_BUCKETS = {
   partially_issued: ["STORE_ISSUE_PARTIAL", "MATERIAL_PARTIAL"],
 };
 
+const STORE_STATUS_LABELS = {
+  MATERIAL_CHECK_PENDING: "Inventory Check Pending",
+  MATERIAL_SHORTAGE: "Material Shortage",
+  MATERIAL_AVAILABLE: "Materials Available",
+  STORE_ISSUE_PENDING: "Ready to Issue",
+  MATERIAL_PARTIAL: "Materials Partially Available",
+  STORE_ISSUE_PARTIAL: "Partially Issued",
+};
+
+const STORE_STATUS_VARIANTS = {
+  MATERIAL_CHECK_PENDING: "warning",
+  MATERIAL_SHORTAGE: "danger",
+  MATERIAL_AVAILABLE: "success",
+  STORE_ISSUE_PENDING: "warning",
+  MATERIAL_PARTIAL: "warning",
+  STORE_ISSUE_PARTIAL: "info",
+};
+
 export const STORE_STATUS_FILTER_OPTIONS = [
   { value: "", label: "All" },
   { value: "store_pending", label: "Store Pending" },
@@ -37,18 +55,13 @@ const ACTION_LABELS = {
 
 export function storeStatusVariant(row) {
   const ws = String(row?.workflow_status || "").toUpperCase();
-  if (STORE_STATUS_BUCKETS.ready_to_issue.includes(ws)) return "success";
-  if (STORE_STATUS_BUCKETS.partially_issued.includes(ws)) return "info";
-  if (ws === "MATERIAL_SHORTAGE") return "danger";
-  return "warning";
+  return STORE_STATUS_VARIANTS[ws] || "warning";
 }
 
 export function storeQueueStatusLabel(row) {
-  if (row?.queue_status_label) return row.queue_status_label;
   const ws = String(row?.workflow_status || "").toUpperCase();
-  if (STORE_STATUS_BUCKETS.store_pending.includes(ws)) return "Store Pending";
-  if (STORE_STATUS_BUCKETS.ready_to_issue.includes(ws)) return "Ready to Issue";
-  if (STORE_STATUS_BUCKETS.partially_issued.includes(ws)) return "Partially Issued";
+  if (STORE_STATUS_LABELS[ws]) return STORE_STATUS_LABELS[ws];
+  if (row?.queue_status_label) return row.queue_status_label;
   return row?.status_label || row?.status || "—";
 }
 

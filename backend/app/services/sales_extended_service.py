@@ -110,6 +110,20 @@ def list_leads_enriched(
             Lead.next_followup <= _dt_end(date.today()),
         )
     leads = list(db.scalars(stmt.order_by(Lead.id.desc())).all())
+    quotations = list(
+        db.scalars(
+            select(Quotation)
+            .where(
+                Quotation.tenant_id == tenant_id,
+                Quotation.lead_id.in_([lead.id for lead in leads]),
+                Quotation.status.not_in(["cancelled", "rejected", "lost"]),
+            )
+            .order_by(Quotation.id.desc())
+        ).all()
+    ) if leads else []
+    quotation_by_lead = {}
+    for quotation in quotations:
+        quotation_by_lead.setdefault(quotation.lead_id, quotation)
     return [
         LeadListRead(
             id=l.id,
@@ -125,6 +139,8 @@ def list_leads_enriched(
             opportunity_value=float(l.opportunity_value) if getattr(l, "opportunity_value", None) else None,
             industry=getattr(l, "industry", None),
             region=getattr(l, "region", None),
+            quotation_id=quotation_by_lead[l.id].id if l.id in quotation_by_lead else None,
+            quotation_number=quotation_by_lead[l.id].quote_number if l.id in quotation_by_lead else None,
         )
         for l in leads
     ]
@@ -534,7 +550,7 @@ def get_dispatch_summary(db: Session, tenant_id: int) -> DispatchSummaryRead:
 
 
 def list_dispatch_enriched(db: Session, tenant_id: int) -> list[DispatchListRead]:
-    """Prefer real DispatchShipment rows; fall back to packed/shipped SOs without fake courier data."""
+    """List real shipments plus ready or packed sales orders without dispatch records."""
     dispatches = list(
         db.scalars(
             select(DispatchShipment)
@@ -546,66 +562,80 @@ def list_dispatch_enriched(db: Session, tenant_id: int) -> list[DispatchListRead
             .order_by(DispatchShipment.dispatch_date.desc())
         ).all()
     )
-    if dispatches:
-        return [
-            DispatchListRead(
-                id=d.id,
-                sales_order_id=d.sales_order_id,
-                dispatch_number=d.dispatch_number,
-                challan_number=d.dispatch_number,
-                so_number=d.sales_order.order_number if d.sales_order else None,
-                customer_name=d.customer.name if d.customer else None,
-                courier=d.courier,
-                vehicle_number=d.vehicle_number,
-                driver_name=d.driver_name,
-                dispatch_date=d.dispatch_date.isoformat() if d.dispatch_date else None,
-                eta=d.eta.isoformat() if d.eta else None,
-                status=d.status,
-                lr_number=d.lr_number,
-                tracking_url=d.tracking_url,
-                notes=d.notes,
-                box_count=d.box_count,
-                total_weight=float(d.total_weight) if d.total_weight is not None else None,
-                packed=bool(d.sales_order.packed) if d.sales_order else d.status == "packed",
-                shipped=bool(d.sales_order.shipped) if d.sales_order else d.status in ("in_transit", "shipped", "delivered"),
-                invoiced=bool(d.sales_order.invoiced) if d.sales_order else False,
-            )
-            for d in dispatches
-        ]
+    result = [
+        DispatchListRead(
+            id=d.id,
+            sales_order_id=d.sales_order_id,
+            dispatch_number=d.dispatch_number,
+            challan_number=d.dispatch_number,
+            so_number=d.sales_order.order_number if d.sales_order else None,
+            customer_name=d.customer.name if d.customer else None,
+            courier=d.courier,
+            vehicle_number=d.vehicle_number,
+            driver_name=d.driver_name,
+            dispatch_date=d.dispatch_date.isoformat() if d.dispatch_date else None,
+            eta=d.eta.isoformat() if d.eta else None,
+            status=d.status,
+            lr_number=d.lr_number,
+            tracking_url=d.tracking_url,
+            notes=d.notes,
+            box_count=d.box_count,
+            total_weight=float(d.total_weight) if d.total_weight is not None else None,
+            packed=bool(d.sales_order.packed) if d.sales_order else d.status == "packed",
+            shipped=bool(d.sales_order.shipped) if d.sales_order else d.status in ("in_transit", "shipped", "delivered"),
+            invoiced=bool(d.sales_order.invoiced) if d.sales_order else False,
+        )
+        for d in dispatches
+    ]
 
+    ready_statuses = ("confirmed", "in_production", "ready")
     orders = list(
         db.scalars(
             select(SalesOrder)
             .options(joinedload(SalesOrder.customer))
             .where(
                 SalesOrder.tenant_id == tenant_id,
-                SalesOrder.packed.is_(True),
+                or_(
+                    SalesOrder.packed.is_(True),
+                    SalesOrder.status.in_(ready_statuses) & SalesOrder.packed.is_(False),
+                ),
+                ~SalesOrder.dispatches.any(),
             )
             .order_by(SalesOrder.order_date.desc())
         ).all()
     )
-    return [
-        DispatchListRead(
-            id=o.id,
-            sales_order_id=o.id,
-            dispatch_number=f"DC-{o.order_number}",
-            challan_number=f"DC-{o.order_number}",
-            so_number=o.order_number,
-            customer_name=o.customer.name if o.customer else None,
-            courier=None,
-            vehicle_number=None,
-            driver_name=None,
-            dispatch_date=o.order_date.isoformat() if o.order_date else None,
-            eta=o.delivery_date.isoformat() if getattr(o, "delivery_date", None) else None,
-            status="in_transit" if o.shipped else "packed",
-            lr_number=None,
-            tracking_url=None,
-            packed=bool(o.packed),
-            shipped=bool(o.shipped),
-            invoiced=bool(o.invoiced),
-        )
-        for o in orders
-    ]
+    result.extend(
+        [
+            DispatchListRead(
+                id=-o.id,
+                sales_order_id=o.id,
+                dispatch_number=f"DC-{o.order_number}",
+                challan_number=f"DC-{o.order_number}",
+                so_number=o.order_number,
+                customer_name=o.customer.name if o.customer else None,
+                courier=None,
+                vehicle_number=None,
+                driver_name=None,
+                dispatch_date=o.order_date.isoformat() if o.order_date else None,
+                eta=o.delivery_date.isoformat() if getattr(o, "delivery_date", None) else None,
+                status=(
+                    "in_transit"
+                    if o.shipped
+                    else "packed"
+                    if o.packed
+                    else "ready"
+                ),
+                lr_number=None,
+                tracking_url=None,
+                packed=bool(o.packed),
+                shipped=bool(o.shipped),
+                invoiced=bool(o.invoiced),
+            )
+            for o in orders
+        ]
+    )
+    result.sort(key=lambda row: row.dispatch_date or "", reverse=True)
+    return result
 
 
 def get_invoice_summary(db: Session, tenant_id: int) -> InvoiceSummaryRead:

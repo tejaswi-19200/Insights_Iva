@@ -81,6 +81,7 @@ import {
   clearQuotationBuyerSelection,
   quotationBuyerActionVisibility,
 } from "../../utils/quotationBuyerSectionUi";
+import { formatCustomerAddress } from "../../utils/salesJobCardDocument";
 
 import {
   MANUFACTURING_EVENTS,
@@ -123,15 +124,16 @@ function dispatchAddressToConsignee(row) {
 }
 
 function formatBuyerAddress(customer, form) {
-  const line = [
-    customer?.address_line1 || customer?.address || form.consignee_address1,
-    customer?.address_line2 || form.consignee_address2,
-    customer?.city,
-    customer?.state,
-    customer?.pincode,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const line = formatCustomerAddress({
+    address_line1:
+      customer?.address_line1 ||
+      customer?.address ||
+      form.consignee_address1,
+    address_line2: customer?.address_line2 || form.consignee_address2,
+    city: customer?.city,
+    state: customer?.state || form.consignee_state,
+    pincode: customer?.pincode,
+  });
   return line || "—";
 }
 
@@ -2269,20 +2271,17 @@ export default function QuotationForm() {
           consignee: {
             name: buyer?.name || form.consignee_name || "",
 
-            address:
-              [
-                buyer?.address_line1,
-                buyer?.address_line2,
-                buyer?.city,
-                buyer?.state,
-                buyer?.pincode,
-              ]
-                .filter(Boolean)
-                .join(", ") ||
-              [form.consignee_address1, form.consignee_address2]
-                .filter(Boolean)
-                .join(", ") ||
-              "",
+            address: formatCustomerAddress({
+              address_line1:
+                buyer?.address_line1 ||
+                buyer?.address ||
+                form.consignee_address1,
+              address_line2:
+                buyer?.address_line2 || form.consignee_address2,
+              city: buyer?.city,
+              state: buyer?.state || form.consignee_state,
+              pincode: buyer?.pincode,
+            }),
 
             state: buyer?.state || form.consignee_state || "",
 

@@ -140,9 +140,10 @@ export default function Leads() {
         getLeadsEnriched(leadQueryParams),
       ]);
 
-      const rawRows = listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)
-        ? listRes.value.data
-        : [];
+      if (listRes.status === "rejected") {
+        throw listRes.reason;
+      }
+      const rawRows = Array.isArray(listRes.value?.data) ? listRes.value.data : [];
       // Backend returns "name" / "phone"; this page still reads the older
       // "customer_name" / "contact" keys in its table, search, and export
       // logic. Alias them here so both old and new leads render correctly
@@ -158,11 +159,17 @@ export default function Leads() {
       setRows(liveRows);
       if (liveSummary) {
         setSummaryState(liveSummary);
+      } else {
+        setSummaryState(null);
+        addToast(
+          apiErrorMessage(summaryRes.reason, "Could not load lead summary from the server."),
+          "error"
+        );
       }
-    } catch {
+    } catch (err) {
       setRows([]);
       setSummaryState(null);
-      addToast("Could not load leads from the server.", "error");
+      addToast(apiErrorMessage(err, "Could not load leads from the server."), "error");
     } finally {
       setLoading(false);
     }
@@ -310,6 +317,12 @@ export default function Leads() {
     }
   };
 
+  const handleViewQuotationFromLead = (lead) => {
+    if (lead.quotation_id) {
+      navigate(`/sales/quotations/${lead.quotation_id}/edit`);
+    }
+  };
+
   const leadActionMenuProps = {
     openMenu,
     setOpenMenu,
@@ -321,6 +334,7 @@ export default function Leads() {
     onEdit: handleEditLead,
     onDelete: handleDeleteLead,
     onCreateQuotation: handleCreateQuotationFromLead,
+    onViewQuotation: handleViewQuotationFromLead,
   };
 
   const columns = [

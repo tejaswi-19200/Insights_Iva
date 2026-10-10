@@ -174,7 +174,21 @@ export default function ProductionJobCardSections({
           <p className="text-sm text-[var(--color-text-muted)]">No raw materials recorded.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="ui-table min-w-full text-left text-xs">
+            <table className="ui-table w-full min-w-[2078px] table-fixed text-left text-xs">
+              <colgroup>
+                <col className="w-16" />
+                <col className="w-[300px]" />
+                <col className="w-[180px]" />
+                <col className="w-[200px]" />
+                <col className="w-[110px]" />
+                <col className="w-[200px]" />
+                <col className="w-[140px]" />
+                <col className="w-[110px]" />
+                <col className="w-[240px]" />
+                <col className="w-[180px]" />
+                <col className="w-[300px]" />
+                {canMaterials ? <col className="w-11" /> : null}
+              </colgroup>
               <thead className="ui-table-head">
                 <tr>
                   <th className="px-2 py-2">Sl. No.</th>
@@ -202,35 +216,35 @@ export default function ProductionJobCardSections({
                             value={row.material_name || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { material_name: e.target.value })}
                             error={errors[`details.raw_materials.${idx}.material_name`]}
-                            className="min-w-[120px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.material_code || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { material_code: e.target.value })}
-                            className="min-w-[80px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.paper_type || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { paper_type: e.target.value })}
-                            className="min-w-[80px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.gsm || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { gsm: e.target.value })}
-                            className="w-16"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.mill_grade || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { mill_grade: e.target.value })}
-                            className="min-w-[80px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
@@ -241,35 +255,35 @@ export default function ProductionJobCardSections({
                             value={row.quantity ?? ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { quantity: e.target.value })}
                             error={errors[`details.raw_materials.${idx}.quantity`]}
-                            className="w-20 text-right"
+                            className="w-full min-w-0 text-right"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.uom || "Nos"}
                             onChange={(e) => onPatchRawMaterial?.(idx, { uom: e.target.value })}
-                            className="w-16"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.batch_lot_no || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { batch_lot_no: e.target.value })}
-                            className="min-w-[80px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.quality || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { quality: e.target.value })}
-                            className="min-w-[70px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">
                           <Input
                             value={row.remarks || ""}
                             onChange={(e) => onPatchRawMaterial?.(idx, { remarks: e.target.value })}
-                            className="min-w-[100px]"
+                            className="w-full min-w-0"
                           />
                         </td>
                         <td className="px-2 py-1.5">

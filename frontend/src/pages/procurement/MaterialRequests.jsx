@@ -45,6 +45,7 @@ import {
   notifyManufacturingSpine,
 } from "../../utils/manufacturingEvents";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import usePermissions from "../../hooks/usePermissions";
 import {
   applyMaterialRequestFieldFilters,
   filterMaterialRequestsByKpi,
@@ -58,7 +59,7 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
   const [detail, setDetail] = useState(null);
   const [supplierId, setSupplierId] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
-  const [unitPrice, setUnitPrice] = useState("0");
+  const [linePrices, setLinePrices] = useState({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -74,14 +75,16 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
         if (cancelled) return;
         setVendors(vRes.data || []);
         setDetail(dRes.data);
+        setLinePrices(
+          Object.fromEntries(
+            (dRes.data?.line_items || []).map((line) => [
+              String(line.item_id),
+              line.item_unit_cost == null ? "" : String(line.item_unit_cost),
+            ])
+          )
+        );
         if (dRes.data?.required_date) {
           setExpectedDate(String(dRes.data.required_date).slice(0, 10));
-        }
-        const linePrices = (dRes.data?.line_items || [])
-          .map((line) => Number(line.unit_price))
-          .filter((n) => Number.isFinite(n) && n > 0);
-        if (linePrices.length) {
-          setUnitPrice(String(linePrices[0]));
         }
       } catch (err) {
         addToast(err.response?.data?.detail || "Failed to load material request", "error");
@@ -109,7 +112,11 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
       const res = await convertMaterialRequestToPO(row.id, {
         supplier_id: Number(supplierId),
         expected_date: expectedDate || null,
-        unit_price: Number(unitPrice) || 0,
+        line_item_prices: Object.fromEntries(
+          Object.entries(linePrices)
+            .filter(([, value]) => value !== "" && Number.isFinite(Number(value)))
+            .map(([itemId, value]) => [itemId, Number(value)])
+        ),
         status: "draft",
       });
       const po = res.data;
@@ -181,26 +188,38 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
                 className="ui-input w-full"
               />
             </div>
-            <div>
-              <label className="ui-label">Default unit price</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
-                className="ui-input w-full"
-              />
-            </div>
             {(detail?.line_items || []).length > 0 && (
-              <ul className="max-h-32 overflow-auto rounded-lg border border-[var(--color-border-soft)] bg-[var(--color-surface-muted)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                {detail.line_items.map((l) => (
-                  <li key={l.id}>
-                    {l.item_name || l.notes?.match(/^Shortage for (.+?) \([^)]*\)$/)?.[1] || `Inventory item #${l.item_id}`}
-                    {l.item_sku ? ` · ${l.item_sku}` : ""} · qty {l.quantity}{l.item_unit ? ` ${l.item_unit}` : ""}
-                  </li>
-                ))}
-              </ul>
+              <div>
+                <label className="ui-label">Items and unit prices</label>
+                <div className="max-h-48 space-y-2 overflow-auto rounded-lg border border-[var(--color-border-soft)] bg-[var(--color-surface-muted)] p-3">
+                  {detail.line_items.map((l) => (
+                    <div key={l.id} className="flex items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0 text-[var(--color-text-secondary)]">
+                        <p className="truncate font-medium text-[var(--color-text)]">
+                          {l.item_name || l.notes?.match(/^Shortage for (.+?) \([^)]*\)$/)?.[1] || `Inventory item #${l.item_id}`}
+                        </p>
+                        <p>{l.item_sku ? `${l.item_sku} · ` : ""}qty {l.quantity}{l.item_unit ? ` ${l.item_unit}` : ""}</p>
+                      </div>
+                      <label className="flex shrink-0 items-center gap-1 text-[var(--color-text-muted)]">
+                        ₹
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={linePrices[String(l.item_id)] ?? ""}
+                          onChange={(e) => setLinePrices((current) => ({ ...current, [String(l.item_id)]: e.target.value }))}
+                          className="ui-input w-24 px-2 py-1"
+                          aria-label={`Unit price for ${l.item_name || `item ${l.item_id}`}`}
+                        />
+                        <span>/ {l.item_unit || "unit"}</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                  Unit prices are prefilled from item master costs when available; adjust them for this supplier if needed.
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -225,6 +244,7 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
 
 function MRDetailModal({ row, onClose, onConvert, onApproved }) {
   const { addToast } = useToast();
+  const { hasRole, isAdmin } = usePermissions();
   const [approving, setApproving] = useState(false);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -252,8 +272,12 @@ function MRDetailModal({ row, onClose, onConvert, onApproved }) {
   if (!row) return null;
   const approval = (row.approval_status || "").toLowerCase();
   const canApprove =
+    (isAdmin || hasRole("Purchase Manager")) &&
     typeof row.id === "number" &&
     !["approved", "rejected"].includes(approval) &&
+    !["converted", "fulfilled", "cancelled"].includes(row.status);
+  const needsPurchaseManagerApproval =
+    approval === "pending" &&
     !["converted", "fulfilled", "cancelled"].includes(row.status);
   const canConvert =
     typeof row.id === "number" &&
@@ -363,9 +387,9 @@ function MRDetailModal({ row, onClose, onConvert, onApproved }) {
             <p className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-3 text-sm text-[var(--color-text-muted)]">This requisition has no material lines.</p>
           )}
         </section>
-        {canApprove ? (
+        {needsPurchaseManagerApproval ? (
           <p className="mt-3 text-xs text-[var(--kpi-warning)]">
-            Purchase Manager must approve this requisition before creating a Purchase Order.
+            This requisition is awaiting Purchase Manager approval before a Purchase Order can be created.
           </p>
         ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
@@ -564,7 +588,9 @@ export default function MaterialRequests() {
                 icon: <Eye className="h-4 w-4" />,
                 onClick: () => setSelected(r),
               },
-              typeof r.id === "number" && !["converted", "fulfilled", "cancelled"].includes(r.status)
+              typeof r.id === "number" &&
+              String(r.approval_status || "").toLowerCase() === "approved" &&
+              !["converted", "fulfilled", "cancelled"].includes(r.status)
                 ? {
                     label: "Convert to PO",
                     icon: <ArrowRightCircle className="h-4 w-4" />,

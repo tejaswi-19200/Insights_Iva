@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ClipboardCheck, Download, Eye, PackageCheck, Pencil, Printer, Send, Trash2 } from "lucide-react";
 
@@ -355,8 +355,15 @@ export default function JobCardQueueTable({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(null);
+  const erpTableWrapRef = useRef(null);
   const location = useLocation();
   const linkState = { from: location.pathname };
+  useEffect(() => {
+    if (erpLayout && erpTableWrapRef.current) {
+      erpTableWrapRef.current.scrollLeft = 0;
+    }
+  }, [erpLayout, selectedOrderId]);
+
   const onIssueMaterials = (row) => {
     const url = storeActionUrl(row, "issue_materials");
     if (url) navigate(url);
@@ -380,7 +387,10 @@ export default function JobCardQueueTable({
   if (erpLayout) {
     return (
       <>
-        <div className="my-job-cards-table ui-table-wrap ui-table-wrap--scroll hidden md:block">
+        <div
+          ref={erpTableWrapRef}
+          className="my-job-cards-table ui-table-wrap ui-table-wrap--scroll hidden md:block"
+        >
           <table className="ui-table min-w-full text-left">
             <thead className="ui-table-head">
               <tr>
@@ -435,7 +445,13 @@ export default function JobCardQueueTable({
                       {jobCardLinkForRow && row.job_card_no ? (
                         <Link
                           to={jobCardLinkForRow(row)}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onViewDetails) {
+                              e.preventDefault();
+                              onViewDetails(row);
+                            }
+                          }}
                           className="text-[var(--color-primary)] underline-offset-2 hover:underline"
                         >
                           {row.job_card_no}

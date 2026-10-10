@@ -72,7 +72,6 @@ class PurchaseOrderLine(Base, TimestampMixin):
     def item_unit(self) -> str | None:
         return self.item.unit if self.item else None
 
-
 class MaterialRequest(Base, TimestampMixin):
     __tablename__ = "material_requests"
 
@@ -125,6 +124,10 @@ class MaterialRequestLine(Base, TimestampMixin):
     @property
     def item_unit(self) -> str | None:
         return self.item.unit if self.item else None
+
+    @property
+    def item_unit_cost(self) -> float | None:
+        return float(self.item.unit_cost) if self.item and self.item.unit_cost is not None else None
 
 
 class GoodsReceipt(Base, TimestampMixin):

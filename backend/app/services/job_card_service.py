@@ -976,6 +976,7 @@ def _resolve_job_card_details(
     db: Session,
     jc: Any | None,
     *,
+    tenant_id: int,
     card: dict[str, Any] | None = None,
     material_check: Any | None = None,
 ) -> dict[str, Any]:
@@ -988,9 +989,31 @@ def _resolve_job_card_details(
     )
 
     details = parse_details_json(jc.details_json if jc else None)
-    if not details.get("raw_materials"):
+    raw_materials = details.get("raw_materials") or []
+    has_material_data = any(
+        any(
+            row.get(key) not in (None, "")
+            for key in (
+                "material_name",
+                "material_code",
+                "paper_type",
+                "gsm",
+                "mill_grade",
+                "quantity",
+                "product_id",
+                "inventory_item_id",
+            )
+        )
+        for row in raw_materials
+        if isinstance(row, dict)
+    )
+    if not has_material_data:
         if material_check and material_check.lines:
-            details["raw_materials"] = build_raw_materials_from_material_check(material_check.lines)
+            details["raw_materials"] = build_raw_materials_from_material_check(
+                db,
+                tenant_id,
+                material_check.lines,
+            )
         elif card and card.get("materials"):
             details["raw_materials"] = build_raw_materials_from_bom(card["materials"])
     if jc and jc.created_at and not details.get("job_info", {}).get("issue_date"):
@@ -1105,7 +1128,8 @@ def save_sales_job_card(
     """Create or update persisted sales job card; finalize triggers workflow handoff."""
     from fastapi import HTTPException
 
-    from app.core.workflow_constants import TEAM_SALES, normalize_priority
+    from app.core.permissions import get_role_names
+    from app.core.workflow_constants import TEAM_SALES, normalize_priority, user_teams
     from app.models.manufacturing_workflow import SalesJobCard
     from app.models.product import Product
     from app.models.sales import SalesOrderLine
@@ -1120,6 +1144,10 @@ def save_sales_job_card(
 
     so = get_sales_order_or_404(db, tenant_id, sales_order_id)
     ws_preview = (so.workflow_status or "").upper()
+    store_issue_editor = (
+        "inventory" in user_teams(get_role_names(user))
+        and ws_preview in {"MATERIAL_AVAILABLE", "STORE_ISSUE_PENDING", "STORE_ISSUE_PARTIAL"}
+    )
     _assert_job_card_save_permission(user, payload, finalize=finalize, workflow_status=ws_preview)
 
     if (so.status or "").lower() not in {"confirmed", "approved"} and not so.workflow_status:
@@ -1224,7 +1252,7 @@ def save_sales_job_card(
         detail_errors = validate_details(
             merged_details,
             editable_sections=_editable_sections_for_user(user, ws_preview),
-            job_card_created=bool(jc and jc.status == "created"),
+            job_card_created=bool(jc and jc.status == "created") and not store_issue_editor,
             finalize=finalize,
             active_detail_sections=active_detail_sections if not finalize else None,
         )
@@ -1346,6 +1374,12 @@ def _editable_sections_for_user(user: User | None, workflow_status: str | None) 
         "MATERIAL_AVAILABLE",
     }:
         sections.append("inventory")
+    if "inventory" in teams and ws in {
+        "MATERIAL_AVAILABLE",
+        "STORE_ISSUE_PENDING",
+        "STORE_ISSUE_PARTIAL",
+    }:
+        sections.extend(["sales", "inventory", "production", "operator", "quality", "packing", "billing"])
     if "production" in teams and ws in {
         "READY_FOR_PRODUCTION",
         "PRODUCTION_ASSIGNED",
@@ -1406,6 +1440,7 @@ def build_sales_job_card(
     db: Session, tenant_id: int, sales_order_id: int, user: User | None = None
 ) -> dict[str, Any] | None:
     """Job card document generated from a sales order (uses WO when available)."""
+    from app.models.manufacturing_workflow import SalesOrderMaterialCheck
     from app.models.product import Product
     from app.models.sales import SalesOrder, SalesOrderLine
     from app.services.workflow_state_service import infer_workflow_status_from_legacy
@@ -1438,6 +1473,15 @@ def build_sales_job_card(
     if line and line.product_id:
         prod = db.get(Product, line.product_id)
         product_code = (prod.sku if prod else "") or ""
+
+    material_check = db.scalars(
+        select(SalesOrderMaterialCheck)
+        .options(selectinload(SalesOrderMaterialCheck.lines))
+        .where(
+            SalesOrderMaterialCheck.tenant_id == tenant_id,
+            SalesOrderMaterialCheck.sales_order_id == so.id,
+        )
+    ).first()
 
     po = db.scalars(
         select(ProductionOrder).where(
@@ -1522,7 +1566,13 @@ def build_sales_job_card(
         else _workflow_stage_label(workflow_status),
         "tone": "success" if not job_card_created or workflow_status in {"SALES_CONFIRMED", "COMPLETED"} else "info",
     }
-    resolved_details = _resolve_job_card_details(db, jc, card=card)
+    resolved_details = _resolve_job_card_details(
+        db,
+        jc,
+        tenant_id=tenant_id,
+        card=card,
+        material_check=material_check,
+    )
     card["details"] = resolved_details
     card["form"] = _serialize_job_card_form(
         db,

@@ -63,9 +63,12 @@ export default function StoreManagerJobCardDocument({
   const companyAddress = doc.company?.address || "";
 
   return (
-    <div className="sjc-doc smjc-doc" id="store-manager-job-card-document">
+    <div
+      className="sjc-doc sjc-doc--screen sjc-doc--display smjc-doc"
+      id="store-manager-job-card-document"
+    >
       <div className="sjc-doc__paper">
-        <div className="sjc-doc__header-row">
+        <div className="sjc-doc__header-row sjc-doc__header-row--sales">
           <div className="sjc-doc__company">
             {logoUrl ? (
               <img src={logoUrl} alt="" className="sjc-doc__logo" />
@@ -78,34 +81,14 @@ export default function StoreManagerJobCardDocument({
             </div>
           </div>
           {tagline ? <p className="sjc-doc__tagline">{tagline}</p> : null}
-          <div className="sjc-doc__meta">
-            <table className="sjc-doc__meta-grid">
-              <tbody>
-                <tr>
-                  <td className="sjc-doc__meta-label">Job Card No.</td>
-                  <td className="sjc-doc__meta-value">{smjcDisplay(doc.header.job_card_no)}</td>
-                </tr>
-                <tr>
-                  <td className="sjc-doc__meta-label">Date</td>
-                  <td className="sjc-doc__meta-value">{fmtDate(doc.header.date) || "—"}</td>
-                </tr>
-                <tr>
-                  <td className="sjc-doc__meta-label">Department</td>
-                  <td className="sjc-doc__meta-value">{smjcDisplay(doc.header.department)}</td>
-                </tr>
-                <tr>
-                  <td className="sjc-doc__meta-label">Location</td>
-                  <td className="sjc-doc__meta-value">{smjcDisplay(doc.header.location)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
 
         <div className="sjc-doc__title-band">Store Manager Job Card</div>
 
         <div className="sjc-doc__columns">
           <SectionPanel title="Request / Purpose Details">
+            <FieldRow label="Store Job Card No." value={doc.header.job_card_no} />
+            <FieldRow label="Date" value={fmtDate(doc.header.date)} />
             <FieldRow label="Request Type" value={doc.request.request_type} />
             <FieldRow label="Raised By" value={doc.request.raised_by} />
             <FieldRow label="Reference No." value={doc.request.reference_no} />
@@ -116,8 +99,10 @@ export default function StoreManagerJobCardDocument({
           </SectionPanel>
 
           <SectionPanel title="Department Details">
-            <FieldRow label="Department" value={doc.department.department} />
-            <FieldRow label="Job Card No." value={doc.department.job_card_no} />
+            <FieldRow label="Store Department" value={doc.header.department} />
+            <FieldRow label="Store Location" value={doc.header.location} />
+            <FieldRow label="Production Department" value={doc.department.department} />
+            <FieldRow label="Sales Job Card No." value={doc.department.job_card_no} />
             <FieldRow label="Product Code" value={doc.department.product_code} />
             <FieldRow label="Product Name" value={doc.department.product_name} />
             <FieldRow label="Process" value={doc.department.process} />
@@ -130,7 +115,7 @@ export default function StoreManagerJobCardDocument({
           </SectionPanel>
         </div>
 
-        <div className="sjc-doc__table-wrap">
+        <div className="sjc-doc__table-wrap smjc-doc__material-wrap">
           <div className="sjc-doc__table-caption">Material Issue Details</div>
           <table className="sjc-doc__table smjc-doc__material-table">
             <thead>
@@ -151,7 +136,7 @@ export default function StoreManagerJobCardDocument({
               {doc.materials.length === 0 ? (
                 <tr>
                   <td colSpan={10} style={{ textAlign: "center", color: "#6b7280" }}>
-                    No material requirements yet. Review sales job card and run inventory check.
+                    No material requirements are available for this job card.
                   </td>
                 </tr>
               ) : (
@@ -176,11 +161,17 @@ export default function StoreManagerJobCardDocument({
 
         <div className="sjc-doc__columns smjc-doc__notes-columns">
           <SectionPanel title="Additional Instructions">
-            <ol className="smjc-doc__instructions">
-              {doc.instructions.map((line, i) => (
-                <li key={i}>{line}</li>
-              ))}
-            </ol>
+            {doc.instructions.length ? (
+              <ol className="smjc-doc__instructions">
+                {doc.instructions.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ol>
+            ) : (
+              <p className="smjc-doc__instructions smjc-doc__instructions--empty">
+                No additional instructions provided.
+              </p>
+            )}
           </SectionPanel>
 
           <SectionPanel title="Store Manager Comments">
@@ -207,7 +198,6 @@ export default function StoreManagerJobCardDocument({
                 <td>{smjcDisplay(doc.approval.approved_by)}</td>
                 <td>
                   <div>{smjcDisplay(doc.approval.date)}</div>
-                  <div className="smjc-doc__signature-line" />
                 </td>
               </tr>
             </tbody>

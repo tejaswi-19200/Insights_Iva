@@ -15,7 +15,7 @@ export function quotationConvertMenuItem(quote, onConvert) {
   }
   if (quote?.converted_to_so && quote?.converted_sales_order_number) {
     return {
-      label: `Converted — ${quote.converted_sales_order_number}`,
+      label: "Converted",
       disabled: true,
     };
   }

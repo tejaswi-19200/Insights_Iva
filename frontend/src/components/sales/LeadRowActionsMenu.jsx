@@ -7,10 +7,6 @@ export function leadRowMenuId(lead) {
   return `lead-${lead?.lead_id || lead?.customer_name || lead?.company || "row"}`;
 }
 
-export function leadIsQualifiedForQuote(lead) {
-  return ["qualified", "converted", "won"].includes(String(lead?.status || "").toLowerCase());
-}
-
 export default function LeadRowActionsMenu({
   lead,
   openMenu,
@@ -24,6 +20,7 @@ export default function LeadRowActionsMenu({
   onEdit,
   onDelete,
   onCreateQuotation,
+  onViewQuotation,
 }) {
   const rowId = leadRowMenuId(lead);
   const hasServerId = typeof lead?.id === "number";
@@ -43,12 +40,20 @@ export default function LeadRowActionsMenu({
       onClick: () => onEdit?.(lead),
     });
   }
-  if (canCreateQuotation && hasServerId && leadIsQualifiedForQuote(lead)) {
-    items.push({
-      label: "Create Quotation",
-      icon: <FileText className="h-4 w-4" />,
-      onClick: () => onCreateQuotation?.(lead),
-    });
+  if (canCreateQuotation && hasServerId) {
+    if (lead.quotation_id) {
+      items.push({
+        label: "Quotation Converted",
+        icon: <FileText className="h-4 w-4" />,
+        onClick: () => onViewQuotation?.(lead),
+      });
+    } else {
+      items.push({
+        label: "Create Quotation",
+        icon: <FileText className="h-4 w-4" />,
+        onClick: () => onCreateQuotation?.(lead),
+      });
+    }
   }
   if (canDelete && hasServerId) {
     if (items.length) items.push({ divider: true });

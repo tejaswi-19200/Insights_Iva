@@ -28,6 +28,7 @@ import useAuth from "../../hooks/useAuth";
 import usePermissions from "../../hooks/usePermissions";
 import useTenantId from "../../hooks/useTenantId";
 import useJobCardDetails from "../../hooks/useJobCardDetails";
+import { PermissionDeniedState } from "../../components/common/states";
 import CompletedJobCardAllStagesReport from "../../components/manufacturing/CompletedJobCardAllStagesReport";
 import { getTeamDirectory, getUsers } from "../../api/adminApi";
 import { getMachines } from "../../api/productionApi";
@@ -100,6 +101,7 @@ export default function StageJobCardPage() {
 
   const stage = ROUTE_SEGMENT_TO_STAGE[routeStage] || routeStage;
   const [loading, setLoading] = useState(true);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [card, setCard] = useState(null);
   const [materialLines, setMaterialLines] = useState([]);
@@ -124,6 +126,8 @@ export default function StageJobCardPage() {
     loading: detailsLoading,
     card: detailsCard,
     form: detailsForm,
+    machines: detailMachines,
+    salesPeople: detailOperators,
     salesOrder,
     productLines,
     customers,
@@ -131,11 +135,20 @@ export default function StageJobCardPage() {
     salesPeople,
     errors,
     load: loadDetails,
+    details,
+    editableSections,
+    patchDetailsSection,
+    patchRawMaterial,
+    addRawMaterial,
+    removeRawMaterial,
+    handleSaveDetailsOnly,
+    saving: savingDetails,
   } = useJobCardDetails(orderId, tenantId);
 
   const load = useCallback(async () => {
     if (!orderId || !stage) return;
     setLoading(true);
+    setPermissionDenied(false);
     try {
       const res = await getStageJobCard(orderId, stage);
       const data = res?.data ?? res;
@@ -160,7 +173,11 @@ export default function StageJobCardPage() {
         setProductionForm((f) => ({ ...f, produced_qty: String(data.summary_panel.order_quantity) }));
       }
     } catch (err) {
-      addToast(err?.response?.data?.detail || "Could not load stage job card", "error");
+      if (err?.response?.status === 403) {
+        setPermissionDenied(true);
+      } else {
+        addToast(err?.response?.data?.detail || "Could not load stage job card", "error");
+      }
       setCard(null);
     } finally {
       setLoading(false);
@@ -335,19 +352,19 @@ export default function StageJobCardPage() {
           addToast("Material request raised for shortage items", "success");
         }
       } else if (stage === "store") {
-        if (action === "issue_materials" || action === "partial_issue") {
+        if (action === "issue_materials") {
           await submitStoreIssue(orderId, {
             lines: issueLines.map((ln) => ({ id: ln.id, issued_qty: ln.issued_qty, store_location: ln.store_location })),
-            partial: action === "partial_issue",
             send_to_production: false,
           });
-          addToast("Material issue updated in store", "success");
+          addToast("Issued quantities saved. Store issue is still in progress.", "success");
+          await load();
         } else if (action === "send_to_production") {
           await submitStoreIssue(orderId, {
-            lines: issueLines.map((ln) => ({ id: ln.id, issued_qty: ln.issued_qty || ln.required_qty, store_location: ln.store_location })),
+            lines: issueLines.map((ln) => ({ id: ln.id, issued_qty: ln.required_qty, store_location: ln.store_location })),
             send_to_production: true,
           });
-          addToast("Materials issued. Work Order created & advanced to Stage 4: Production Planning.", "success");
+          addToast("All required materials issued. Advanced to Production Manager.", "success");
           navigate(`/manufacturing/workflow/order/${orderId}/production`);
           return;
         } else if (action === "hold") {
@@ -452,7 +469,7 @@ export default function StageJobCardPage() {
       { key: "material_name", label: "Material" },
       { key: "required_qty", label: "Required" },
       { key: "available_qty", label: "Available" },
-      { key: "issued_qty", label: "Issued", editable: card?.editable, type: "number" },
+      { key: "issued_qty", label: "Total Issued", editable: card?.editable, type: "number", showZero: true },
       { key: "remaining_qty", label: "Remaining" },
       { key: "store_location", label: "Store", editable: card?.editable },
       { key: "issue_status", label: "Status" },
@@ -510,6 +527,9 @@ export default function StageJobCardPage() {
       return (
         <article className="ui-card overflow-hidden">
           <CardSectionHeader title="Material Issue" />
+          <p className="border-b border-[var(--color-border-muted)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+            Enter the total quantity issued for each material. Saving deducts only any increase from stock. If materials remain, save the issue and return later. “Issue All &amp; Send to Production” issues all remaining quantities and advances the job card.
+          </p>
           {stockSnapshot}
           <MaterialTable
             columns={issueColumns}
@@ -531,7 +551,15 @@ export default function StageJobCardPage() {
               )
             }
           />
-          <JobCardActions actions={card?.allowed_actions} loading={submitting} onAction={runAction} />
+          <JobCardActions
+            actions={(card?.allowed_actions || []).filter((action) => action !== "partial_issue")}
+            loading={submitting}
+            onAction={runAction}
+            labels={{
+              issue_materials: "Save Issue Quantities",
+              send_to_production: "Issue All & Send to Production",
+            }}
+          />
         </article>
       );
     }
@@ -719,6 +747,19 @@ export default function StageJobCardPage() {
     );
   }
 
+  if (permissionDenied) {
+    return (
+      <div className="ui-page">
+        <PermissionDeniedState
+          title="Permission denied"
+          description={`Your role does not have access to the ${STAGE_TITLES[stage] || stage} stage for this job card.`}
+          onBack={() => navigate("/my-job-cards?dept=inventory")}
+          backLabel="Back to My Job Cards"
+        />
+      </div>
+    );
+  }
+
   if (!card) {
     return (
       <div className="ui-page ui-stack">
@@ -776,6 +817,17 @@ export default function StageJobCardPage() {
         stageTitle={STAGE_TITLES[stage]}
         stageActions={stageActions}
         showWorkflowTracker={true}
+        productionDetailsEditable={stage === "store" && editableSections.length > 0}
+        onSaveProductionDetails={handleSaveDetailsOnly}
+        savingProductionDetails={savingDetails}
+        details={details}
+        machines={detailMachines}
+        operators={detailOperators}
+        editableSections={editableSections}
+        onPatchDetailsSection={patchDetailsSection}
+        onPatchRawMaterial={patchRawMaterial}
+        onAddRawMaterial={addRawMaterial}
+        onRemoveRawMaterial={removeRawMaterial}
       />
       {isAdmin && (
         <>

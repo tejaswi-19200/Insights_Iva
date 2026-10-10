@@ -10,15 +10,35 @@ function fmtDate(iso) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
-function formatAddress(customer) {
+export function formatCustomerAddress(customer) {
   if (!customer) return "";
-  const parts = [
+  const metadataStart =
+    /(?:^|,\s*|\|\s*)(?:Payment Terms|Balance|Party type|GST Treatment|Customer Reference):/i;
+  const candidates = [
     customer.address_line1 || customer.billing_address,
     customer.address_line2,
     customer.city,
     customer.state,
     customer.pincode,
-  ].filter(Boolean);
+  ];
+  const parts = [];
+  const seen = new Set();
+
+  candidates.forEach((candidate) => {
+    const cleaned = String(candidate || "").split(metadataStart)[0];
+    cleaned
+      .split(/[,\r\n]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach((part) => {
+        const key = part.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          parts.push(part);
+        }
+      });
+  });
+
   return parts.join(", ");
 }
 
@@ -100,7 +120,7 @@ export function buildSalesJobCardDocument({
       contact_person: cust.contact_name,
       phone: cust.phone,
       email: cust.email,
-      billing_address: formatAddress(cust),
+      billing_address: formatCustomerAddress(cust),
     },
     order_details: {
       sales_order_date: so.order_date,

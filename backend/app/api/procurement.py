@@ -552,6 +552,15 @@ def approve_material_request_endpoint(
     db: Session = Depends(get_db),
 ) -> MaterialRequestRead:
     """Purchase Manager approval before convert-to-PO."""
+    is_purchase_manager = any(
+        str(role).strip().lower().replace("_", " ").replace("-", " ") == "purchase manager"
+        for role in get_role_names(user)
+    )
+    if not user_is_admin(user) and not is_purchase_manager:
+        raise HTTPException(
+            status_code=403,
+            detail="Only a Purchase Manager can approve or reject a purchase requisition.",
+        )
     return approve_material_request(
         db,
         user.tenant_id,

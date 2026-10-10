@@ -156,11 +156,11 @@ PRIMARY_ROLE_LABEL: dict[str, str] = {
 
 # Store Manager list labels (canonical workflow_status_label is unchanged)
 STORE_QUEUE_STATUS_LABELS: dict[str, str] = {
-    "MATERIAL_CHECK_PENDING": "Store Pending",
-    "MATERIAL_SHORTAGE": "Store Pending",
-    "MATERIAL_AVAILABLE": "Ready to Issue",
+    "MATERIAL_CHECK_PENDING": "Inventory Check Pending",
+    "MATERIAL_SHORTAGE": "Material Shortage",
+    "MATERIAL_AVAILABLE": "Materials Available",
     "STORE_ISSUE_PENDING": "Ready to Issue",
-    "MATERIAL_PARTIAL": "Partially Issued",
+    "MATERIAL_PARTIAL": "Materials Partially Available",
     "STORE_ISSUE_PARTIAL": "Partially Issued",
 }
 
@@ -793,7 +793,7 @@ def build_store_queue_context(
         if line.material_check_line_id is not None
     }
     materials_issued = bool(store_card and store_card.status == "completed")
-    if materials_issued:
+    if store_card:
         for material in requirements:
             issue = issued_lines.get(material["id"])
             if issue:

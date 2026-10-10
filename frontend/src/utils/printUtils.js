@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml } from "./htmlEscape";
+import { formatCustomerAddress } from "./salesJobCardDocument";
 
 export function extractJobCardData(order, user) {
   if (!order) return {};
@@ -832,7 +833,12 @@ function extractSalesJobCardPrintData(order) {
     tagline,
     ...doc,
     header: doc.header || {},
-    customer_details: doc.customer_details || {},
+    customer_details: {
+      ...(doc.customer_details || {}),
+      billing_address: formatCustomerAddress({
+        billing_address: doc.customer_details?.billing_address,
+      }),
+    },
     order_details: doc.order_details || {},
     product_lines: doc.product_lines || [],
     technical_specifications: doc.technical_specifications || [],

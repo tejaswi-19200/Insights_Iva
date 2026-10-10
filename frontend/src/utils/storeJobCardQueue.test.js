@@ -4,6 +4,8 @@ import {
   compareStoreQueueRows,
   matchesStoreStatusBucket,
   STORE_ACTIONABLE_STATUSES,
+  storeQueueStatusLabel,
+  storeStatusVariant,
 } from "./storeJobCardQueue";
 import { getSerialNumber } from "./serialNumber";
 
@@ -30,6 +32,23 @@ describe("storeJobCardQueue", () => {
   it("excludes packing statuses from actionable inventory set", () => {
     expect(STORE_ACTIONABLE_STATUSES.has("PACKED")).toBe(false);
     expect(STORE_ACTIONABLE_STATUSES.has("MATERIAL_CHECK_PENDING")).toBe(true);
+  });
+
+  it("shows a distinct label and relevant badge color for each store workflow state", () => {
+    const expected = [
+      ["MATERIAL_CHECK_PENDING", "Inventory Check Pending", "warning"],
+      ["MATERIAL_SHORTAGE", "Material Shortage", "danger"],
+      ["MATERIAL_AVAILABLE", "Materials Available", "success"],
+      ["STORE_ISSUE_PENDING", "Ready to Issue", "warning"],
+      ["MATERIAL_PARTIAL", "Materials Partially Available", "warning"],
+      ["STORE_ISSUE_PARTIAL", "Partially Issued", "info"],
+    ];
+
+    for (const [workflow_status, label, variant] of expected) {
+      const row = { workflow_status, queue_status_label: "Store Pending" };
+      expect(storeQueueStatusLabel(row)).toBe(label);
+      expect(storeStatusVariant(row)).toBe(variant);
+    }
   });
 });
 

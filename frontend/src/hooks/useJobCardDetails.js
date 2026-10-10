@@ -51,6 +51,7 @@ export function useJobCardDetails(orderId, tenantId) {
   const [card, setCard] = useState(null);
   const [form, setForm] = useState(null);
   const [details, setDetails] = useState(() => emptyProductionDetails());
+  const [dirtyDetailSections, setDirtyDetailSections] = useState(() => new Set());
   const [salesOrder, setSalesOrder] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [productLines, setProductLines] = useState([]);
@@ -86,6 +87,7 @@ export function useJobCardDetails(orderId, tenantId) {
         setCard(data);
         setForm({ ...(data?.form || {}), notes: data?.form?.notes || "" });
         setDetails(mergeProductionDetails(null, data?.details || data?.form?.details || {}));
+        setDirtyDetailSections(new Set());
 
         const soData = soRes?.data ?? soRes;
         const order = soData?.order ?? null;
@@ -98,6 +100,7 @@ export function useJobCardDetails(orderId, tenantId) {
         setCard(null);
         setForm(null);
         setDetails(emptyProductionDetails());
+        setDirtyDetailSections(new Set());
         setSalesOrder(null);
         setCustomer(null);
         setProductLines([{ ...EMPTY_LINE(), quantity: 1, unit: "pcs" }]);
@@ -131,6 +134,7 @@ export function useJobCardDetails(orderId, tenantId) {
 
   const patchDetailsSection = (section, value) => {
     setDetails((prev) => mergeProductionDetails(prev, { [section]: value }));
+    setDirtyDetailSections((prev) => new Set(prev).add(section));
     setErrors((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((k) => {
@@ -146,6 +150,7 @@ export function useJobCardDetails(orderId, tenantId) {
       rows[index] = { ...rows[index], ...patch };
       return mergeProductionDetails(prev, { raw_materials: rows });
     });
+    setDirtyDetailSections((prev) => new Set(prev).add("raw_materials"));
   };
 
   const addRawMaterial = () => {
@@ -154,6 +159,7 @@ export function useJobCardDetails(orderId, tenantId) {
       rows.push(emptyRawMaterialRow(rows.length + 1));
       return mergeProductionDetails(prev, { raw_materials: rows });
     });
+    setDirtyDetailSections((prev) => new Set(prev).add("raw_materials"));
   };
 
   const removeRawMaterial = (index) => {
@@ -163,6 +169,7 @@ export function useJobCardDetails(orderId, tenantId) {
         raw_materials: rows.map((r, i) => ({ ...r, sl_no: i + 1 })),
       });
     });
+    setDirtyDetailSections((prev) => new Set(prev).add("raw_materials"));
   };
 
   const validate = (opts = {}) => {
@@ -206,6 +213,59 @@ export function useJobCardDetails(orderId, tenantId) {
     setCard(data);
     setForm({ ...(data?.form || {}), notes: data?.form?.notes || "" });
     setDetails(mergeProductionDetails(null, data?.details || data?.form?.details || {}));
+    setDirtyDetailSections(new Set());
+  };
+
+  const handleSaveDetailsOnly = async () => {
+    const sectionPermissions = {
+      job_info: "sales",
+      raw_materials: "inventory",
+      production: "production",
+      output: "quality",
+      approval: "sales",
+    };
+    const dirtySections = [...dirtyDetailSections];
+    if (!dirtySections.length) {
+      addToast("No production job card changes to save.", "info");
+      return false;
+    }
+
+    const editableDetailSections = dirtySections
+      .map((section) => sectionPermissions[section])
+      .filter(Boolean);
+    const storeIssueEdit = [
+      "MATERIAL_AVAILABLE",
+      "STORE_ISSUE_PENDING",
+      "STORE_ISSUE_PARTIAL",
+    ].includes(String(card?.workflow_status || "").toUpperCase());
+    const detailErrors = validateProductionDetails(details, {
+      editableSections: editableDetailSections,
+      isCreated: Boolean(form?.is_created || card?.job_card_created) && !storeIssueEdit,
+    });
+    if (Object.keys(detailErrors).length) {
+      setErrors(detailErrors);
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      const serialized = serializeDetailsForApi(details);
+      const detailsPatch = Object.fromEntries(
+        dirtySections.map((section) => [section, serialized[section]])
+      );
+      const res = await saveSalesJobCard(orderId, { details: detailsPatch });
+      const data = res?.data ?? res;
+      applySavedCard(data);
+      addToast("Production job card details saved.", "success");
+      return true;
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail?.errors) setErrors(detail.errors);
+      addToast(typeof detail === "string" ? detail : detail?.message || "Save failed", "error");
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -315,6 +375,7 @@ export function useJobCardDetails(orderId, tenantId) {
     addRawMaterial,
     removeRawMaterial,
     handleSave,
+    handleSaveDetailsOnly,
     handleCreate,
     addProductLine,
     removeProductLine,

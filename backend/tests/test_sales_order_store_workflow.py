@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 import uuid
 from datetime import date
 from types import SimpleNamespace
@@ -13,7 +15,7 @@ from app.core.database import SessionLocal
 from app.core.seed_roles import seed_roles
 from app.core.seed_tenant import seed_tenant
 from app.models.inventory import InventoryItem, StockLevel, StockMovement, Warehouse
-from app.models.manufacturing_workflow import SalesOrderMaterialCheck
+from app.models.manufacturing_workflow import SalesJobCard, SalesOrderMaterialCheck
 from app.models.product import Product
 from app.models.role import Role
 from app.models.sales import Customer, SalesOrder
@@ -198,7 +200,7 @@ def test_confirmed_sales_order_appears_in_store_manager_queue(client):
     assert "reserved_qty" in mine
     assert "shortage_qty" in mine
     assert mine.get("responsible_role") == "Store Manager"
-    assert mine.get("queue_status_label") == "Store Pending"
+    assert mine.get("queue_status_label") == "Inventory Check Pending"
     assert "check_stock" in (mine.get("allowed_actions") or [])
     assert my_queue.json().get("meta", {}).get("counts") is not None
 
@@ -276,6 +278,51 @@ def test_material_check_all_available_advances_to_store_issue(client):
     assert submit.status_code == 200, submit.text
     body = submit.json()
     assert body["workflow_status"] == "STORE_ISSUE_PENDING"
+
+    db = SessionLocal()
+    try:
+        sales_job_card = db.scalars(
+            select(SalesJobCard).where(SalesJobCard.sales_order_id == order_id)
+        ).first()
+        assert sales_job_card
+        sales_job_card.details_json = json.dumps({"raw_materials": [{}]})
+        db.commit()
+    finally:
+        db.close()
+
+    job_card = client.get(
+        f"/manufacturing/workflow/sales-orders/{order_id}/job-card",
+        headers=store_headers,
+    )
+    assert job_card.status_code == 200, job_card.text
+    job_card_body = job_card.json()
+    editable_sections = set(job_card_body.get("editable_sections") or [])
+    assert {"inventory", "production", "operator", "quality", "packing"}.issubset(editable_sections)
+    raw_materials = job_card_body.get("details", {}).get("raw_materials") or []
+    assert len(raw_materials) == len(lines)
+    for raw_material, material_check_line in zip(raw_materials, lines):
+        assert raw_material["material_name"] == material_check_line["material_name"]
+        assert float(raw_material["quantity"]) == float(material_check_line["required_qty"])
+        assert raw_material["material_code"]
+        assert raw_material["uom"]
+
+    saved_details = client.patch(
+        f"/manufacturing/workflow/sales-orders/{order_id}/job-card",
+        headers=store_headers,
+        json={"details": {"production": {"remarks": "Store issue production note"}}},
+    )
+    assert saved_details.status_code == 200, saved_details.text
+    assert (
+        saved_details.json().get("details", {}).get("production", {}).get("remarks")
+        == "Store issue production note"
+    )
+
+    denied_sales_edit = client.patch(
+        f"/manufacturing/workflow/sales-orders/{order_id}/job-card",
+        headers=store_headers,
+        json={"priority": "high"},
+    )
+    assert denied_sales_edit.status_code == 403, denied_sales_edit.text
 
     queue = client.get(
         "/manufacturing/workflow/queue",
@@ -431,6 +478,7 @@ def test_record_shortage_creates_material_request_lines(client):
     assert raised.status_code == 200, raised.text
     body = raised.json()
     assert body.get("material_request_number")
+    assert re.fullmatch(r"PR-\d{4}-\d{4,}", body["material_request_number"])
     assert body.get("lines_added", 0) >= 1
     assert body.get("material_request_id")
 
@@ -520,6 +568,14 @@ def test_complete_store_stage_moves_to_production_manager_queue(client):
             if ln.get("id")
         ]
         issue_payload["partial"] = False
+        saved_issue = client.post(
+            f"/manufacturing/workflow/sales-orders/{order_id}/store-issue",
+            headers=store_headers,
+            json={**issue_payload, "send_to_production": False},
+        )
+        assert saved_issue.status_code == 200, saved_issue.text
+        assert saved_issue.json().get("workflow_status") == "STORE_ISSUE_PENDING"
+
     issue = client.post(
         f"/manufacturing/workflow/sales-orders/{order_id}/store-issue",
         headers=store_headers,

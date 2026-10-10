@@ -40,6 +40,7 @@ from app.schemas.store_workflow import (
     StoreStockInRead,
 )
 from app.services.inventory_service import get_total_stock, record_stock_movement
+from app.services.procurement_service import next_material_request_number
 
 _PENDING_TRANSFER_STATUSES = ("draft", "pending", "pending_approval", "in_transit")
 _STOCK_IN_TYPES = ("in", "return", "purchase")
@@ -50,7 +51,7 @@ _MR_CLOSED_STATUSES = ("cancelled", "converted", "fulfilled", "rejected")
 def _load_recent_stock_activity(
     db: Session, tenant_id: int, limit: int = 8
 ) -> list[StoreDashboardActivityRow]:
-    """Recent activity from catalog stock events (Inventory V2) — not legacy orphan movements."""
+    """Recent activity across catalog stock events and inventory stock movements."""
     events = list(
         db.scalars(
             select(ProductStockEvent)
@@ -59,17 +60,17 @@ def _load_recent_stock_activity(
             .limit(limit)
         ).all()
     )
-    if not events:
-        return []
     product_ids = {e.product_id for e in events}
     name_map: dict[int, str] = {}
-    for product in db.scalars(
-        select(Product).where(Product.tenant_id == tenant_id, Product.id.in_(product_ids))
-    ).all():
-        name_map[product.id] = product.name
-    return [
+    if product_ids:
+        for product in db.scalars(
+            select(Product).where(Product.tenant_id == tenant_id, Product.id.in_(product_ids))
+        ).all():
+            name_map[product.id] = product.name
+
+    activity: list[StoreDashboardActivityRow] = [
         StoreDashboardActivityRow(
-            id=event.id,
+            id=-event.id,
             occurred_at=event.created_at,
             activity_label=(event.activity or "Stock Activity").strip(),
             item_name=name_map.get(event.product_id, "—"),
@@ -78,6 +79,42 @@ def _load_recent_stock_activity(
         )
         for event in events
     ]
+
+    movements = list(
+        db.scalars(
+            select(StockMovement)
+            .where(StockMovement.tenant_id == tenant_id)
+            .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
+            .limit(limit)
+        ).all()
+    )
+    item_ids = {movement.item_id for movement in movements}
+    inventory_item_names: dict[int, str] = {}
+    if item_ids:
+        for item in db.scalars(
+            select(InventoryItem).where(
+                InventoryItem.tenant_id == tenant_id,
+                InventoryItem.id.in_(item_ids),
+            )
+        ).all():
+            inventory_item_names[item.id] = item.name
+
+    activity.extend(
+        StoreDashboardActivityRow(
+            id=movement.id,
+            occurred_at=movement.created_at,
+            activity_label=_movement_activity_label(movement.movement_type),
+            item_name=inventory_item_names.get(movement.item_id, "—"),
+            quantity=abs(float(movement.quantity or 0)),
+            movement_type=movement.movement_type or "",
+        )
+        for movement in movements
+    )
+    activity.sort(
+        key=lambda row: row.occurred_at.isoformat() if row.occurred_at else "",
+        reverse=True,
+    )
+    return activity[:limit]
 
 
 def _movement_activity_label(movement_type: str | None) -> str:
@@ -894,14 +931,7 @@ def create_pr_from_low_stock(
     if recommended is None:
         recommended = max(min_stock * 2 - current, min_stock or 1, 1)
 
-    year = date.today().year
-    count = int(
-        db.scalar(
-            select(func.count(MaterialRequest.id)).where(MaterialRequest.tenant_id == tenant_id)
-        )
-        or 0
-    )
-    mr_number = f"PR-{year}-{count + 1:04d}"
+    mr_number = next_material_request_number(db, tenant_id)
     mr = MaterialRequest(
         tenant_id=tenant_id,
         mr_number=mr_number,

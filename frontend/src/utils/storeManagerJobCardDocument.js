@@ -2,58 +2,37 @@
 
 import { fmtDate, formatCompanyAddress } from "./salesJobCardDocument";
 
-const DEFAULT_INSTRUCTIONS = [
-  "Verify material specification and grade before issue.",
-  "Issue exact quantity as per job card / production requirement.",
-  "Maintain FIFO and batch / roll traceability in stock ledger.",
-  "Report any shortage immediately to production / purchase.",
-];
-
 function display(value) {
   if (value == null || value === "") return "—";
   return String(value);
 }
 
-function mapMaterialLines(materials, productLines, specs) {
-  if (Array.isArray(materials) && materials.length) {
-    return materials.map((m, i) => {
-      const req = Number(m.required_qty ?? m.quantity ?? 0);
-      const issued = Number(m.issued_qty ?? 0);
-      const balance = m.balance_qty != null ? Number(m.balance_qty) : Math.max(0, req - issued);
-      return {
-        sl_no: i + 1,
-        material_code: m.material_code || m.product_code || "",
-        material_name: m.material_name || m.material || m.product_name || "",
-        specification: m.specification || m.description || "",
-        uom: m.unit || m.uom || "Nos",
-        required_qty: req,
-        issued_qty: issued,
-        balance_qty: balance,
-        batch_no: m.batch_no || m.batch_lot_no || "",
-        remarks: m.remarks || m.stock_status || "",
-      };
-    });
-  }
+function mapMaterialLines(materials) {
+  if (!Array.isArray(materials)) return [];
 
-  if (!Array.isArray(productLines) || !productLines.length) return [];
-
-  const specText = (specs || [])
-    .map((s) => `${s.parameter || ""}: ${s.specification || ""}`.trim())
-    .filter(Boolean)
-    .join("; ");
-
-  return productLines.map((ln, i) => ({
-    sl_no: i + 1,
-    material_code: ln.product_code || "",
-    material_name: ln.product_name || "",
-    specification: ln.description || specText || "",
-    uom: ln.uom || ln.unit || "Nos",
-    required_qty: Number(ln.quantity) || 0,
-    issued_qty: 0,
-    balance_qty: Number(ln.quantity) || 0,
-    batch_no: "",
-    remarks: "Pending planning",
-  }));
+  return materials.map((m, i) => {
+    const req = Number(m.required_qty ?? m.quantity ?? 0);
+    const issued = Number(m.issued_qty ?? 0);
+    const balance =
+      m.remaining_qty != null
+        ? Number(m.remaining_qty)
+        : m.balance_qty != null
+          ? Number(m.balance_qty)
+          : Math.max(0, req - issued);
+    return {
+      sl_no: i + 1,
+      material_code: m.material_code || m.product_code || m.sku || "",
+      material_name:
+        m.material_name || m.material || m.component_name || m.product_name || "",
+      specification: m.specification || m.description || "",
+      uom: m.unit || m.uom || "Nos",
+      required_qty: req,
+      issued_qty: issued,
+      balance_qty: balance,
+      batch_no: m.batch_no || m.batch_lot_no || "",
+      remarks: m.remarks || m.stock_status || "",
+    };
+  });
 }
 
 export function buildStoreManagerJobCardDocument({
@@ -72,6 +51,7 @@ export function buildStoreManagerJobCardDocument({
   const productLines = sd.product_lines || manualDoc.product_lines || [];
   const specs = sd.technical_specifications || manualDoc.technical_specifications || [];
   const storeWf = card.store_workflow || {};
+  const productionInstructions = card.details?.production?.production_instructions || "";
 
   const salesJcNo = row?.job_card_no || header.job_card_no || card.job_card_no || "";
   const smJobCardNo = salesJcNo
@@ -80,14 +60,15 @@ export function buildStoreManagerJobCardDocument({
       ? `SM-${new Date().getFullYear()}-${String(row.job_card_id).padStart(4, "0")}`
       : "";
 
-  const materialsSource =
-    storeContext?.material_requirements ||
-    card.material_requirements ||
-    materialCheck?.lines ||
-    materialCheck?.materials ||
-    [];
+  const materialsSource = [
+    card.material_check?.lines,
+    card.details?.material_check?.lines,
+    storeContext?.material_requirements,
+    materialCheck?.lines,
+    materialCheck?.materials,
+  ].find((lines) => Array.isArray(lines) && lines.length > 0) || [];
 
-  const materials = mapMaterialLines(materialsSource, productLines, specs);
+  const materials = mapMaterialLines(materialsSource);
   const firstProduct = productLines[0] || {};
   const totalQty = productLines.reduce((sum, ln) => sum + (Number(ln.quantity) || 0), 0);
 
@@ -127,7 +108,10 @@ export function buildStoreManagerJobCardDocument({
       uom: firstProduct.uom || firstProduct.unit || row?.unit || "Nos",
     },
     materials,
-    instructions: DEFAULT_INSTRUCTIONS,
+    instructions: String(productionInstructions)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
     store_comments: storeComments || storeWf.return_remarks || storeContext?.notes || "",
     approval: {
       prepared_by: storeWf.acknowledged_by || "",

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, XCircle } from "lucide-react";
 
 import Button from "../common/Button";
@@ -44,6 +45,7 @@ export default function ManualMaterialCheckPanel({
   readOnly = false,
 }) {
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -126,10 +128,15 @@ export default function ManualMaterialCheckPanel({
           remarks: ln.remarks || null,
         })),
       });
-      addToast(
-        "Material check saved. Use Send to Production Manager when ready — saving did not send the job card.",
-        "success"
-      );
+      const hasShortage = lines.some((line) => Number(line.shortage_qty || 0) > 0);
+      if (hasShortage) {
+        addToast("Material check saved. Opening Purchase Requisitions for shortage follow-up.", "success");
+        onUpdated?.();
+        navigate("/procurement/material-requests");
+        return;
+      }
+
+      addToast("Material check saved. All required materials are available.", "success");
       await load();
       onUpdated?.();
     } catch (err) {
@@ -334,8 +341,8 @@ export default function ManualMaterialCheckPanel({
             </Button>
           </div>
           <p className="store-manual-jc-actions__hint" role="note">
-            <strong>Save</strong> records the material availability result only. It does <strong>not</strong> send
-            the job card to Production Manager.
+            <strong>Save</strong> records the availability result. If there is a shortage, it opens Purchase
+            Requisitions for follow-up; fully available materials remain in the job card workflow.
           </p>
         </div>
       ) : null}

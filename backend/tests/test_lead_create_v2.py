@@ -53,6 +53,27 @@ def test_lead_next_id_and_create_happy_path(client, register_admin):
     assert body["lead_no"]
     assert body["product_id"] == product_id
 
+    summary = client.get("/sales/leads/summary", headers=headers)
+    assert summary.status_code == 200, summary.text
+    assert _unwrap(summary.json())["total_leads"] == 1
+
+    listing = client.get("/sales/leads/enriched", headers=headers)
+    assert listing.status_code == 200, listing.text
+    assert any(row["id"] == body["id"] for row in _unwrap(listing.json()))
+
+    converted = client.post(
+        f"/sales/leads/{body['id']}/convert-to-quotation",
+        headers=headers,
+    )
+    assert converted.status_code == 200, converted.text
+    quotation = converted.json()
+
+    listing = client.get("/sales/leads/enriched", headers=headers)
+    assert listing.status_code == 200, listing.text
+    listed_lead = next(row for row in _unwrap(listing.json()) if row["id"] == body["id"])
+    assert listed_lead["quotation_id"] == quotation["id"]
+    assert listed_lead["quotation_number"] == quotation["quote_number"]
+
 
 def test_lead_create_validation_error(client, register_admin):
     admin = register_admin()

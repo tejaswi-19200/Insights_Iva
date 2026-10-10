@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ClipboardList, ExternalLink, Eye, Filter, IndianRupee, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { CheckCircle, ClipboardList, ExternalLink, Eye, Filter, IndianRupee, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
 import KpiCard from "../../components/common/KpiCard";
 import ExportDownloadMenu from "../../components/common/ExportDownloadMenu";
 import { ListPageCard, ListPageCardBody, ListPageShell } from "../../components/common/ListPageShell";
@@ -16,7 +16,12 @@ import { ErrorState, NoResultsState, OfflineState } from "../../components/commo
 import SODetailModal from "../../components/sales/SODetailModal";
 import { useToast } from "../../context/ToastContext";
 import { useNetworkStatus } from "../../context/NetworkStatusContext";
-import { getSOSummary, getSalesOrdersEnriched, deleteSalesOrder } from "../../api/salesApi";
+import {
+  confirmSalesOrder,
+  getSOSummary,
+  getSalesOrdersEnriched,
+  deleteSalesOrder,
+} from "../../api/salesApi";
 import { formatInr, statusColor } from "../../data/salesMasterData";
 import { runListExport } from "../../utils/listExport";
 import { apiErrorMessage, asArray } from "../../utils/apiError";
@@ -28,6 +33,10 @@ import {
 import useAuth from "../../hooks/useAuth";
 import { userCanAction, userCanCreateSalesJobCard } from "../../config/permissions";
 import { jobCardCreateUrl, jobCardDetailsUrl } from "../../utils/jobCardRoutes";
+import {
+  MANUFACTURING_EVENTS,
+  notifyManufacturingSpine,
+} from "../../utils/manufacturingEvents";
 
 
 import Button from "../../components/common/Button";
@@ -56,6 +65,7 @@ export default function SalesOrders() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [confirmingOrderId, setConfirmingOrderId] = useState(null);
   const deleteInFlight = useRef(false);
 
   useEffect(() => {
@@ -122,6 +132,50 @@ export default function SalesOrders() {
   const hasAdvancedFilters = Boolean(
     appliedFilters.customer || appliedFilters.status || appliedFilters.sales_person
   );
+
+  const handleConfirmSalesOrder = async (order) => {
+    if (typeof order.id !== "number" || confirmingOrderId === order.id) return;
+    setConfirmingOrderId(order.id);
+    try {
+      const res = await confirmSalesOrder(order.id);
+      const result = res?.data ?? res;
+      notifyManufacturingSpine(MANUFACTURING_EVENTS.MRP_RUN, result);
+      notifyManufacturingSpine(MANUFACTURING_EVENTS.DASHBOARD_REFRESH, result);
+      if (result?.warning) {
+        addToast(result.warning, "warning");
+      } else if (result?.already_confirmed) {
+        addToast("Order already confirmed");
+      } else {
+        addToast(
+          result?.repaired_workflow
+            ? "Sales order linked to inventory check queue. Next: Store verifies materials."
+            : "Sales order confirmed. Sent to Store for material check — open Job Card to track progress.",
+          "success"
+        );
+      }
+      await load();
+    } catch (err) {
+      addToast(apiErrorMessage(err, "Confirm failed"), "error");
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
+  const salesOrderDetailsAction = (order) => {
+    const status = String(order.status || "").toLowerCase();
+    if (["draft", "pending"].includes(status)) {
+      return {
+        label: "Confirm Sales Order",
+        icon: <CheckCircle className="h-4 w-4" />,
+        onClick: () => handleConfirmSalesOrder(order),
+      };
+    }
+    return {
+      label: "Full Details",
+      icon: <ExternalLink className="h-4 w-4" />,
+      onClick: () => navigate(`/sales/orders/${order.id}`),
+    };
+  };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget?.id || typeof deleteTarget.id !== "number") return;
@@ -233,11 +287,7 @@ export default function SalesOrders() {
             },
             ...(typeof r.id === "number"
               ? [
-                  {
-                    label: "Full Details",
-                    icon: <ExternalLink className="h-4 w-4" />,
-                    onClick: () => navigate(`/sales/orders/${r.id}`),
-                  },
+                  salesOrderDetailsAction(r),
                   {
                     label: "Job Card",
                     icon: <ClipboardList className="h-4 w-4" />,
@@ -544,11 +594,7 @@ export default function SalesOrders() {
                             },
                             ...(typeof r.id === "number"
                               ? [
-                                  {
-                                    label: "Full Details",
-                                    icon: <ExternalLink className="h-4 w-4" />,
-                                    onClick: () => navigate(`/sales/orders/${r.id}`),
-                                  },
+                                  salesOrderDetailsAction(r),
                                   {
                                     label: "Job Card",
                                     icon: <ClipboardList className="h-4 w-4" />,

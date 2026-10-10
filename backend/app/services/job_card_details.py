@@ -6,6 +6,9 @@ import json
 import re
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 LOCAL_TYPES = frozenset({"local", "non-local", "non_local", "non local"})
 
 
@@ -256,14 +259,20 @@ def queue_fields_from_details(details: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_raw_materials_from_material_check(lines: list[Any]) -> list[dict[str, Any]]:
+def build_raw_materials_from_material_check(
+    db: Session,
+    tenant_id: int,
+    lines: list[Any],
+) -> list[dict[str, Any]]:
+    from app.models.product import Product
+
     rows: list[dict[str, Any]] = []
     for i, ln in enumerate(lines or [], start=1):
         if isinstance(ln, dict):
             code = ln.get("material_code") or ln.get("sku") or ln.get("product_code") or ""
             name = ln.get("material_name") or ""
             qty = float(ln.get("required_qty") or 0)
-            uom = ln.get("uom") or "Nos"
+            uom = ln.get("uom") or ""
             rem = ln.get("stock_location") or ln.get("remarks") or ""
             pid = ln.get("product_id")
             iid = ln.get("inventory_item_id")
@@ -276,16 +285,26 @@ def build_raw_materials_from_material_check(lines: list[Any]) -> list[dict[str, 
             pid = getattr(ln, "product_id", None)
             iid = getattr(ln, "inventory_item_id", None)
 
+        product = (
+            db.scalars(
+                select(Product).where(
+                    Product.id == pid,
+                    Product.tenant_id == tenant_id,
+                )
+            ).first()
+            if pid
+            else None
+        )
         rows.append(
             {
                 "sl_no": i,
                 "material_name": name,
-                "material_code": code,
+                "material_code": code or (product.sku if product else ""),
                 "paper_type": "",
                 "gsm": "",
                 "mill_grade": "",
                 "quantity": qty,
-                "uom": uom,
+                "uom": uom or (product.unit if product else None) or "Nos",
                 "batch_lot_no": "",
                 "quality": "",
                 "remarks": rem,
